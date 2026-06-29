@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}探活歷史 - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>探活歷史 (probe_runs)</h2>
+<form method="get" action="/probes/" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+  <input type="text" name="endpoint" placeholder="endpoint">
+  <input type="text" name="model_id" placeholder="model_id">
+  <input type="text" name="capability" placeholder="capability">
+  <input type="number" name="limit" placeholder="limit (default 200)">
+  <button class="btn" type="submit">查詢</button>
+</form>
+<table>
+  <thead><tr><th>ran_at</th><th>endpoint</th><th>model</th><th>capability</th><th>status</th><th>latency</th><th>error</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.ran_at }}</td>
+    <td>{{ r.endpoint_name }}</td>
+    <td>{{ r.model_id }}</td>
+    <td>{{ r.capability }}</td>
+    <td>
+      {% if r.ok %}<span class="tag ok">{{ r.status }}</span>
+      {% else %}<span class="tag err">{{ r.status }}</span>{% endif %}
+    </td>
+    <td>{{ r.latency_ms }}ms</td>
+    <td><small>{{ r.error or '-' }}</small></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

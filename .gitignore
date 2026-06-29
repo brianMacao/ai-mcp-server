@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+.venv/
+venv/
+
+# uv
+uv.lock
+
+# npm
+node_modules/
+npm-debug.log*
+
+# Local test data
+.keys
+.data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Local agent/editor metadata
+.trae/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.DS_Store

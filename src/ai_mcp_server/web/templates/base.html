@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}ai-mcp ui{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <h1>ai-mcp ui</h1>
+    <a href="/">Dashboard</a>
+    <a href="/endpoints/">Endpoints</a>
+    <a href="/models/">Models</a>
+    <a href="/overrides/">Overrides</a>
+    <a href="/probes/">Probes 歷史</a>
+    <a href="/jobs/">探活佇列</a>
+    <a href="/meta/">LiteLLM Meta</a>
+  </aside>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

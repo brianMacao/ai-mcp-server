@@ -1,0 +1,4 @@
+# Copy this to `.keys` and fill in your API keys.
+# .keys is gitignored.
+EXAMPLE_URL=https://your-api-base-url/v1
+EXAMPLE_API_KEY=YOUR_KEY_HERE

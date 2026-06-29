@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ endpoint.name }} - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>{{ endpoint.name }}</h2>
+<p class="muted">{{ endpoint.base_url }} · {{ endpoint.provider_type }} · 建立於 {{ endpoint.created_at }}</p>
+<form class="inline" method="post" action="/endpoints/{{ endpoint.name }}/discover">
+  <button class="btn ghost" type="submit">重新發現 models</button>
+</form>
+<form class="inline" method="post" action="/endpoints/{{ endpoint.name }}/probe">
+  <button class="btn" type="submit">對所有 model 入隊 10 種能力探活</button>
+</form>
+<p class="muted" style="margin-top:6px;">探活 / 自動判定能力為背景任務，需有 worker 在運行才會被執行（<code>ai-mcp-server</code> 進程自帶 worker，或另開 <code>ai-mcp worker</code>）。入隊後到 <a href="/jobs/">Jobs</a> 查看進度。</p>
+
+<div class="card" style="margin-top:14px;">
+  <strong>手動新增 model</strong>
+  <p class="muted">適用於不提供 /v1/models 的 API。新增後可在下方對單個 model 點「自動判定能力」。</p>
+  <form method="post" action="/endpoints/{{ endpoint.name }}/models/add" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input type="text" name="model_ids" placeholder="model_id（多個用逗號或換行）" required style="min-width:260px;">
+    <input type="number" name="context_length" placeholder="context length（可選）">
+    <input type="text" name="features" placeholder="features: tts=true,asr=false" style="min-width:240px;">
+    <button class="btn" type="submit">新增</button>
+  </form>
+  <p class="muted">features 支援 capability=true/false 與 context_length=數字；常用別名：tts / stt / asr。</p>
+</div>
+
+<h3>Models ({{ models|length }})</h3>
+{% if models %}
+<table>
+  <thead><tr><th>model_id</th><th>ctx</th><th>capabilities</th><th>操作</th></tr></thead>
+  <tbody>
+  {% for m in models %}
+  <tr>
+    <td><a href="/models/{{ m.endpoint }}/{{ m.model_id }}">{{ m.model_id }}</a></td>
+    <td>{{ m.context_length or '-' }} <span class="muted">({{ m.context_length_source or '-' }})</span></td>
+    <td>
+      {% for cap, cv in m.capabilities.items() %}
+        {% if cv.value %}<span class="tag ok">{{ cap }}({{ cv.source[:3] }})</span>{% endif %}
+        {% if not cv.value and cv.source == 'probe' %}<span class="tag off">{{ cap }}=false(pro)</span>{% endif %}
+      {% endfor %}
+    </td>
+    <td>
+      <form class="inline" method="post" action="/endpoints/{{ endpoint.name }}/models/probe">
+        <input type="hidden" name="model_id" value="{{ m.model_id }}">
+        <button class="btn" type="submit">自動判定能力</button>
+      </form>
+      <form class="inline" method="post" action="/endpoints/{{ endpoint.name }}/models/remove"
+            onsubmit="return confirm('刪除 {{ m.model_id }}?')">
+        <input type="hidden" name="model_id" value="{{ m.model_id }}">
+        <button class="btn danger" type="submit">刪除</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">尚未發現 model。點上面的「重新發現」或「手動新增 model」。</p>
+{% endif %}
+{% endblock %}

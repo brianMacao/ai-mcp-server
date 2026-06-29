@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>Dashboard</h2>
+<div class="grid">
+  <div class="card"><strong>Endpoints</strong><div style="font-size:24px;">{{ endpoints|length }}</div></div>
+  <div class="card"><strong>Models</strong><div style="font-size:24px;">{{ model_count }}</div></div>
+  <div class="card"><strong>佇列 pending</strong><div style="font-size:24px;">{{ pending }}</div></div>
+  <div class="card"><strong>佇列 running</strong><div style="font-size:24px;">{{ running }}</div></div>
+</div>
+
+<h3>Capability 分佈</h3>
+{% if cap_counts %}
+<table>
+  <thead><tr><th>capability</th><th>具備該能力的模型數</th></tr></thead>
+  <tbody>
+  {% for cap, n in cap_counts.items() %}
+    <tr><td>{{ cap }}</td><td>{{ n }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">尚未有任何能力被探活，請至 Endpoints 觸發探活。</p>
+{% endif %}
+
+<h3>已登記 Endpoints</h3>
+{% if endpoints %}
+<table>
+  <thead><tr><th>name</th><th>base_url</th><th>provider</th><th>created</th></tr></thead>
+  <tbody>
+  {% for e in endpoints %}
+    <tr><td><a href="/endpoints/{{ e.name }}">{{ e.name }}</a></td><td>{{ e.base_url }}</td><td>{{ e.provider_type }}</td><td>{{ e.created_at }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">尚未登記任何 endpoint。請到 <a href="/endpoints/">Endpoints</a> 頁面新增。</p>
+{% endif %}
+{% endblock %}

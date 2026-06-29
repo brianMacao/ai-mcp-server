@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.full_id }} - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>{{ detail.full_id }}</h2>
+<p class="muted">endpoint={{ detail.endpoint }} · ctx={{ detail.context_length }} ({{ detail.context_length_source }}) · last_discovered={{ detail.last_discovered_at }}</p>
+
+<h3>Capability 來源逐項</h3>
+<table>
+  <thead><tr><th>capability</th><th>value</th><th>source</th><th>probed_at</th></tr></thead>
+  <tbody>
+  {% for cap, cv in detail.capabilities.items() %}
+    <tr><td>{{ cap }}</td><td>{{ cv.value }}</td><td>{{ cv.source }}</td><td>{{ cv.probed_at or '-' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>近 3 天性能（背景聚合）</h3>
+{% if detail.performance and detail.performance.get('call_count') is not none %}
+<table>
+  <thead><tr><th>調用次數</th><th>成功次數</th><th>平均首字節(ms)</th><th>平均 prompt token</th><th>平均 output token</th><th>窗口天數</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>{{ detail.performance.get('call_count') }}</td>
+      <td>{{ detail.performance.get('success_count') }}</td>
+      <td>{{ detail.performance.get('avg_first_byte_ms')|round(1) if detail.performance.get('avg_first_byte_ms') is not none else '-' }}</td>
+      <td>{{ detail.performance.get('avg_prompt_tokens')|round(1) if detail.performance.get('avg_prompt_tokens') is not none else '-' }}</td>
+      <td>{{ detail.performance.get('avg_output_tokens')|round(1) if detail.performance.get('avg_output_tokens') is not none else '-' }}</td>
+      <td>{{ detail.performance.get('window_days') }}</td>
+    </tr>
+  </tbody>
+</table>
+{% else %}
+<p class="muted">近 3 天暫無調用記錄。</p>
+{% endif %}
+
+<h3>新增 override</h3>
+<form method="post" action="/overrides/" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+  <input type="hidden" name="endpoint" value="{{ detail.endpoint }}">
+  <input type="hidden" name="model_id" value="{{ detail.model_id }}">
+  <input type="text" name="capability_key" placeholder="feature key (e.g. vision / tts / asr)" required>
+  <input type="text" name="value" placeholder='value JSON (e.g. true)' required>
+  <button class="btn" type="submit">覆寫</button>
+</form>
+
+<h3>原始 metadata</h3>
+<pre>{{ detail | tojson(indent=2) }}</pre>
+{% endblock %}

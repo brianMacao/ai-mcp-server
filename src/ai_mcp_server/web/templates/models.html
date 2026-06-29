@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Models - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>Models</h2>
+
+<details style="margin-bottom:14px;">
+  <summary style="cursor:pointer;">手動新增 model（適用於不提供 /v1/models 的 API）</summary>
+  <form method="post" action="/models/add" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    <select name="endpoint" required>
+      <option value="">選擇 endpoint</option>
+      {% for ep in endpoints %}
+      <option value="{{ ep }}" {% if ep == filter_endpoint %}selected{% endif %}>{{ ep }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="model_ids" placeholder="model_id（多個用逗號或換行）" required style="min-width:240px;">
+    <input type="number" name="context_length" placeholder="context length（可選）">
+    <input type="text" name="capability" placeholder="capabilities（逗號分隔，可選）" style="min-width:200px;">
+    <input type="text" name="features" placeholder="features: asr=true,context_length=32000" style="min-width:260px;">
+    <button class="btn" type="submit">新增</button>
+  </form>
+  <p class="muted" style="margin-top:6px;">可用 capability: {{ all_capabilities|join(', ') }}；別名支援 tts / stt / asr。</p>
+</details>
+
+<form method="get" action="/models/" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+  <input type="text" name="endpoint" placeholder="endpoint name" value="{{ filter_endpoint }}">
+  <input type="text" name="capability" placeholder="capabilities (comma)" value="{{ filter_capability }}">
+  <input type="number" name="min_context" placeholder="min context" value="{{ filter_min_context }}">
+  <button class="btn" type="submit">套用</button>
+  <span class="muted">可用 capability: {{ all_capabilities|join(', ') }}</span>
+</form>
+
+<p class="muted">共 {{ items|length }} 個 model</p>
+<table>
+  <thead><tr><th>endpoint</th><th>model_id</th><th>ctx</th><th>capabilities</th><th>近3天調用</th><th>成功</th><th>avg首字節(ms)</th><th>avg prompt</th><th>avg output</th><th>操作</th></tr></thead>
+  <tbody>
+  {% for it in items %}
+  <tr>
+    <td>{{ it.endpoint }}</td>
+    <td><a href="/models/{{ it.endpoint }}/{{ it.model_id }}">{{ it.model_id }}</a></td>
+    <td>{{ it.context_length or '-' }}</td>
+    <td>
+      {% for cap, cv in it.capabilities.items() %}
+        {% if cv.value %}<span class="tag ok">{{ cap }}</span>{% endif %}
+        {% if not cv.value and cv.source == 'probe' %}<span class="tag off">{{ cap }}=false</span>{% endif %}
+      {% endfor %}
+    </td>
+    <td>{{ it.performance.get('call_count') if it.performance.get('call_count') is not none else '-' }}</td>
+    <td>{{ it.performance.get('success_count') if it.performance.get('success_count') is not none else '-' }}</td>
+    <td>{{ it.performance.get('avg_first_byte_ms')|round(0)|int if it.performance.get('avg_first_byte_ms') is not none else '-' }}</td>
+    <td>{{ it.performance.get('avg_prompt_tokens')|round(0)|int if it.performance.get('avg_prompt_tokens') is not none else '-' }}</td>
+    <td>{{ it.performance.get('avg_output_tokens')|round(0)|int if it.performance.get('avg_output_tokens') is not none else '-' }}</td>
+    <td>
+      <form method="post" action="/models/remove" onsubmit="return confirm('確定刪除 {{ it.model_id }}?');" style="margin:0;">
+        <input type="hidden" name="endpoint" value="{{ it.endpoint }}">
+        <input type="hidden" name="model_id" value="{{ it.model_id }}">
+        <button class="btn" type="submit">刪除</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,30 @@
+{
+  "name": "ai-mcp-server",
+  "version": "0.1.0",
+  "description": "Local MCP bridge: unify multi-endpoint model capabilities into a single MCP server + CLI + Web UI",
+  "repository": "github:brianMacao/ai-mcp-server",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ai-mcp": "./cli.js",
+    "ai-mcp-server": "./cli.js",
+    "ai-mcp-ui": "./cli.js"
+  },
+  "dependencies": {},
+  "files": [
+    "cli.js",
+    "package.json",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "ai",
+    "model-pool",
+    "openai-compatible"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

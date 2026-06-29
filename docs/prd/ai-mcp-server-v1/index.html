@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ai-mcp-server v1 PRD</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --text: #17202a;
+        --muted: #667085;
+        --line: #d9dee7;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --ok: #16794c;
+        --warn: #a35b00;
+        --err: #b42318;
+        font-family: Inter, "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.62; }
+      .shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+      .sidebar { position: sticky; top: 0; height: 100vh; overflow: auto; border-right: 1px solid var(--line); background: #ffffff; padding: 24px 18px; }
+      .sidebar h1 { margin: 0 0 6px; font-size: 18px; line-height: 1.3; }
+      .sidebar .sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+      .sidebar a { display: block; border-radius: 6px; color: #344054; padding: 6px 10px; text-decoration: none; font-size: 14px; }
+      .sidebar a:hover, .sidebar a:focus { background: var(--accent-soft); color: var(--accent); }
+      .content { max-width: 1120px; width: 100%; padding: 36px 40px 80px; }
+      .hero { margin-bottom: 24px; }
+      .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; }
+      h1.title { margin: 6px 0 10px; font-size: 30px; }
+      h2 { margin-top: 40px; padding-top: 6px; font-size: 24px; line-height: 1.3; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+      h3 { margin-top: 22px; font-size: 17px; }
+      h4 { margin-top: 14px; font-size: 15px; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .card { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 14px; }
+      .card strong { display: block; margin-bottom: 6px; }
+      .card.ok { border-left: 4px solid var(--ok); }
+      .card.warn { border-left: 4px solid var(--warn); }
+      .card.err { border-left: 4px solid var(--err); }
+      table { width: 100%; border-collapse: collapse; overflow-wrap: anywhere; margin: 10px 0; font-size: 14px; }
+      th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+      th { background: #eef2f7; font-weight: 600; }
+      code { border-radius: 4px; background: #edf2f7; padding: 1px 5px; font-size: 13px; }
+      pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+      pre code { background: transparent; color: inherit; padding: 0; }
+      .diagram { display: block; width: 100%; height: 360px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; margin: 10px 0; }
+      .diagram.er { height: 420px; }
+      .diagram.flow { height: 260px; }
+      .diagram.arch { height: 460px; }
+      .note { color: var(--muted); font-size: 13px; }
+      ul.tight, ol.tight { margin: 8px 0; padding-left: 22px; }
+      ul.tight li, ol.tight li { margin: 4px 0; }
+      .diagram-notes { font-size: 13px; color: var(--muted); }
+      @media (max-width: 860px) {
+        .shell { display: block; }
+        .sidebar { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+        .content { padding: 24px 16px 56px; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="PRD sections">
+        <h1>ai-mcp-server v1</h1>
+        <div class="sub">本地三進程模型能力橋樑（MCP / CLI / Web UI）</div>
+        <a href="#terms">術語解釋</a>
+        <a href="#review">0. 審查結論與交付門禁</a>
+        <a href="#value">1. 產品價值</a>
+        <a href="#scope">2. 範圍</a>
+        <a href="#baseline">3. 現況與差距</a>
+        <a href="#journeys">4. 目標旅程</a>
+        <a href="#solution">5. 產品方案（含 Web UI）</a>
+        <a href="#architecture">6. 架構擴展（含 Worker）</a>
+        <a href="#data">7. 數據與資料庫規劃</a>
+        <a href="#implementation">8. 實施計劃（9 個里程碑）</a>
+        <a href="#dev-reality">9. 開發風險</a>
+        <a href="#testing">10. 測試與驗收</a>
+        <a href="#security">11. 安全與隱私</a>
+        <a href="#risks">12. 風險與決策</a>
+        <a href="#dod">13. 完成定義</a>
+      </aside>
+
+      <main class="content">
+        <header class="hero">
+          <div class="eyebrow">實施級 PRD · v1.0</div>
+          <h1 class="title">ai-mcp-server：多 API Key 多模型能力的本地 MCP 橋樑</h1>
+          <p class="note">把分散在多個 (api_key, base_url) 中的模型能力（chat / vision / reasoning / embedding / image_gen / tts / stt / rerank）收編成單一本地 MCP 橋樑，讓只能配一個模型的 Agent 也能按需路由到任意能力的模型。三進程拓撲：<strong>MCP server (stdio)</strong> + <strong>CLI</strong> + <strong>Web UI</strong>，透過 in-process 共享 <code>application/*</code> 與 WAL 模式 SQLite 構成單一邏輯後端；探活異步化、樂觀鎖避雙跑。</p>
+        </header>
+
+        <section id="terms">
+          <h2>術語解釋</h2>
+          <table>
+            <thead><tr><th>術語</th><th>解釋</th></tr></thead>
+            <tbody>
+              <tr><td>MCP</td><td>Model Context Protocol，Anthropic 主導的客戶端與工具服務的協議；本項目以 stdio 模式對接 MCP client（如 Claude Desktop、Cursor、Cline）。</td></tr>
+              <tr><td>MCP server</td><td>本倉庫主交付物，以 stdio 啟動，被 Agent 客戶端按需拉起。</td></tr>
+              <tr><td>MCP tool</td><td>MCP server 暴露給 Agent 的可調用功能，本期共 6 個：<code>usage_guide</code> / <code>list_models</code> / <code>invoke_model</code> / <code>model_performance</code> / <code>refresh_endpoint</code> / <code>add_models</code>。</td></tr>
+              <tr><td>endpoint</td><td>用戶登記的一組 (name, base_url, api_key, provider_type)，代表一個上游 API 提供商。</td></tr>
+              <tr><td>model</td><td>endpoint 下發現的單一模型 id，附帶 capabilities 標籤集。</td></tr>
+              <tr><td>capability</td><td>模型能力標籤：<code>text_chat</code>、<code>vision</code>、<code>tool_call</code>、<code>reasoning</code>、<code>json_mode</code>、<code>embedding</code>、<code>image_gen</code>、<code>audio_tts</code>、<code>audio_stt</code>、<code>rerank</code>。</td></tr>
+              <tr><td>probe</td><td>能力探活，發最小 payload（內容統一為「1」）驗證模型在某能力上是否真實可用。</td></tr>
+              <tr><td>resolver</td><td>能力來源融合器，按「用戶覆寫 &gt; 探活 &gt; LiteLLM metadata &gt; 內建靜態表」優先級合併。</td></tr>
+              <tr><td>provider adapter</td><td>協議防腐層；本期只實作 <code>OpenAICompatAdapter</code>，Anthropic 預留接口。</td></tr>
+              <tr><td>LiteLLM</td><td>第三方項目，維護一份 <code>model_prices_and_context_window.json</code>，包含主流模型的 context_length、modality、定價等 metadata。</td></tr>
+              <tr><td>Fernet</td><td>cryptography 庫提供的對稱加密方案，用於加密儲存 api_key。</td></tr>
+              <tr><td>keyring</td><td>系統級密鑰儲存（macOS Keychain / Windows Credential Vault），用於儲存 master key。</td></tr>
+              <tr><td>透傳</td><td>對上游 API 的請求與響應原樣轉發，不做業務語義改寫（除協議格式轉換外）。</td></tr>
+              <tr><td>stdio</td><td>標準輸入輸出流；MCP server 透過 stdio 與 client 進程通信，無網路埠。</td></tr>
+              <tr><td>DAO</td><td>Data Access Object，封裝對 SQLite 表的讀寫的薄函數層。</td></tr>
+              <tr><td>ER</td><td>實體關係圖，展示資料表及其關係。</td></tr>
+              <tr><td>ABC</td><td>Python <code>abc.ABC</code> 抽象基類，定義 Provider Adapter 接口契約。</td></tr>
+              <tr><td>解讀 X</td><td>「邏輯單一後端」架構：UI / CLI / MCP server 三個進程各自 <code>import ai_mcp_server.application.*</code> 共享同一份業務邏輯與同一個 SQLite，但不共享進程。</td></tr>
+              <tr><td>WAL</td><td>SQLite Write-Ahead Logging journal mode；支援多進程並發讀寫，本期所有進程啟動時設定 <code>PRAGMA journal_mode=WAL</code>。</td></tr>
+              <tr><td>Worker</td><td>探活背景執行單元；可由 MCP server 進程內背景任務承擔，也可由 CLI <code>endpoint probe</code> 同步消化。</td></tr>
+              <tr><td>probe_jobs</td><td>探活任務佇列表；UI / CLI / MCP 任一入口都可入隊；任務狀態 <code>pending / claiming / running / done / failed</code>。</td></tr>
+              <tr><td>instance_id</td><td>每個 worker 實例啟動時生成的 UUID，寫入 <code>probe_jobs.claimed_by</code> 作為樂觀鎖標記。</td></tr>
+              <tr><td>樂觀鎖</td><td>並發控制策略：先寫 <code>claimed_by</code> → 等 0.5 秒 → 二次讀；若仍是自己才執行，否則放棄。</td></tr>
+              <tr><td>lease</td><td>worker 認領任務後的時效租約；超時未完成則被視為孤兒任務，被定期掃描回退為 <code>pending</code>。</td></tr>
+              <tr><td>Jinja2</td><td>Python 後端模板引擎，本期 Web UI 使用其純後端渲染，不引入 SPA。</td></tr>
+              <tr><td>FastAPI</td><td>Python 異步 Web 框架；本期 <code>ai-mcp ui</code> 子命令以 uvicorn 託管 FastAPI 應用。</td></tr>
+              <tr><td>SSE</td><td>Server-Sent Events；本期 UI 監聽 <code>probe_jobs</code> 狀態變化用 SSE 推送進度。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="review">
+          <h2>0. 審查結論與交付門禁</h2>
+          <div class="grid">
+            <div class="card ok"><strong>結論</strong><span>可進入實施。需求、技術棧、6 個 MCP tool 形態、能力來源優先級均已與用戶確認。</span></div>
+            <div class="card warn"><strong>硬門禁</strong><span>真實 MCP client（如 Claude Desktop）拉起 stdio server 後，6 個 tool 的 schema、響應結構、透傳行為必須可見、可診斷。CLI 單元測試不可替代此驗收。</span></div>
+            <div class="card warn"><strong>MVP 不變量</strong><span>橋樑不攔截、靜態優先探活兜底、四來源優先級不動、stdio 部署不引入帳號層。</span></div>
+          </div>
+
+          <h3>本輪契約變更：MCP tool 從 4 個升級為 6 個</h3>
+          <p class="note">2026-06-28 決策：將現有實作中的 <code>model_performance</code> 與 <code>add_models</code> 正式納入 v1 MCP 公共契約，避免設計文檔、協作指引、README、驗收腳本與 <code>server.py</code> 分離。6 個 tool 是本期刻意上限；後續新增 tool 必須先回到本 PRD 更新設計與驗收。</p>
+          <table>
+            <thead><tr><th>Tool</th><th>契約定位</th><th>邊界</th></tr></thead>
+            <tbody>
+              <tr><td><code>usage_guide</code></td><td>連線後第一步，返回動態 inventory、能力分佈與推薦路由模式。</td><td>只提供說明與統計，不調上游 API。</td></tr>
+              <tr><td><code>list_models</code></td><td>按 capability、context length、endpoint、probe 狀態篩選可用模型。</td><td>只查本地 SQLite 與 resolver，不做自動 fallback。</td></tr>
+              <tr><td><code>invoke_model</code></td><td>對選定 endpoint/model 透傳上游調用。</td><td>只做協議格式轉換與 <code>model</code> 注入，不改寫 messages 或業務語義。</td></tr>
+              <tr><td><code>model_performance</code></td><td>查詢近 3 天每模型調用次數、成功率、首字延遲與 token 均值，輔助 Agent 在同能力模型間做選擇。</td><td>讀本地聚合指標，不做計費、不做成本估算、不影響路由決策。</td></tr>
+              <tr><td><code>refresh_endpoint</code></td><td>刷新 model list 並入隊 capability probes，由 worker 異步消化。</td><td>不同步阻塞等待所有 probe 完成；不做重試或自動 fallback。</td></tr>
+              <tr><td><code>add_models</code></td><td>為不暴露 <code>/v1/models</code> 的 endpoint 手動登記 model_id、context length 與能力覆寫。</td><td>只寫本地模型/覆寫資料；應由 Agent 先向用戶確認 model_id 與能力來源。</td></tr>
+            </tbody>
+          </table>
+
+          <h3>本輪發布阻斷修復</h3>
+          <p class="note">2026-06-28 發布審查後修復以下阻斷項；本表是設計與實施同步的發布準入記錄。</p>
+          <table>
+            <thead><tr><th>問題</th><th>修復策略</th><th>驗收</th></tr></thead>
+            <tbody>
+              <tr><td>sdist 夾帶 <code>.keys</code>、<code>.trae/</code> 等本地敏感或工具文件。</td><td><code>.gitignore</code> 改為忽略 <code>.keys</code> 並保留 <code>.keys.example</code>；<code>pyproject.toml</code> 使用 sdist 白名單 include 與 build exclude。</td><td><code>uv build</code> 後檢查 tarball / wheel，不得包含 <code>.keys</code>、<code>.trae/</code>。</td></tr>
+              <tr><td>wheel 中 probe assets 被重複打包。</td><td>移除 wheel <code>shared-data</code> 規則，只保留 <code>force-include assets/probe → ai_mcp_server/_assets/probe</code>。</td><td>wheel 中每個 probe asset 只出現一次，且可被 <code>probe_assets_dir()</code> 找到。</td></tr>
+              <tr><td>默認 DB 寫入源碼/安裝目錄附近的 <code>.data</code>。</td><td>默認改為 <code>~/.ai-mcp-server</code>；相對 <code>AI_MCP_CONFIG_DIR</code>/<code>AI_MCP_DB_PATH</code> 按當前工作目錄解析。</td><td><code>tests/unit/test_path_util.py</code> 覆蓋 home-relative default 與 cwd-relative env。</td></tr>
+              <tr><td>timeout / rate limit / skipped probe 會把已知 capability 覆蓋為 false。</td><td>worker 僅在 <code>ok</code> 或明確 <code>not_supported</code> 時寫回 capability；其他狀態只記 <code>probe_runs</code> 與 job error。</td><td>timeout 測試保持 <code>gpt-4o</code> 的 static vision=true，不被 probe false 污染。</td></tr>
+              <tr><td><code>assets/probe/digit_1.wav</code> 缺失，STT probe 永遠 skipped。</td><td>新增 <code>digit_1.wav</code>，並擴展 <code>scripts/generate_probe_assets.py</code> 同時生成 PNG/WAV。</td><td><code>file assets/probe/digit_1.wav</code> 顯示 16kHz mono PCM WAV；wheel/sdist 均包含該資產。</td></tr>
+              <tr><td>TTS 透傳成功時只返回音訊長度，沒有返回可用音訊內容。</td><td><code>OpenAICompatAdapter.tts()</code> 將二進位音訊以 <code>audio_base64</code> 放入 JSON body，同時保留 byte length 與 content-type。</td><td>Agent 可從 <code>invoke_model(operation="tts")</code> 的 <code>body.audio_base64</code> 取得音訊產物。</td></tr>
+              <tr><td><code>AI_MCP_UI_TOKEN</code> 開啟時 <code>/jobs/stream</code> 被放行。</td><td>token middleware 僅放行 static assets；SSE job stream 必須帶 token。</td><td><code>tests/unit/test_web_security.py</code> 覆蓋無 token 訪問 <code>/jobs/stream</code> 返回 401。</td></tr>
+              <tr><td>MCP stdio smoke 未納入 CI，且舊腳本仍驗 4 tools。</td><td>smoke 腳本改驗 6 tools；CI 新增 <code>uv run python scripts/verify_mcp_server.py</code>。</td><td>CI 與本地 smoke 都必須看到 6 個 MCP tool 並能調用 <code>usage_guide</code>。</td></tr>
+            </tbody>
+          </table>
+
+          <h3>已確認決策</h3>
+          <table>
+            <thead><tr><th>決策項</th><th>選擇</th><th>備註</th></tr></thead>
+            <tbody>
+              <tr><td>部署形態</td><td>本地單用戶 stdio MCP</td><td>不做多用戶 SaaS、不做 HTTP 服務</td></tr>
+              <tr><td>協議支援</td><td>OpenAI 兼容（首期），Anthropic 預留</td><td>Provider ABC 留接口，不寫 Anthropic 殼</td></tr>
+              <tr><td>MCP tool 形態</td><td>方案 C 擴展：guide + list + invoke + performance + refresh + manual add</td><td>正式契約共 6 個 tool；<code>model_performance</code> 與 <code>add_models</code> 納入 v1</td></tr>
+              <tr><td>使用說明承載</td><td>MCP <code>instructions</code> + <code>usage_guide</code> tool 雙保險</td><td>instructions 強提示、tool 動態組裝</td></tr>
+              <tr><td>能力來源</td><td>四來源融合：用戶覆寫 &gt; 探活 &gt; LiteLLM &gt; 靜態表</td><td>resolver 統一收口</td></tr>
+              <tr><td>探活覆蓋</td><td>10 種能力全做</td><td>內容統一「1」，vision/stt 用內建資產</td></tr>
+              <tr><td>探活觸發</td><td>UI / CLI / MCP 任一入隊；worker 異步消化</td><td>狀態綁定 DB，非進程記憶體</td></tr>
+              <tr><td>Worker 模型</td><td>(δ) MCP server 內背景任務 + (γ) CLI <code>endpoint probe</code> 同步消化</td><td>雙來源驅動，UI 不開也能跑</td></tr>
+              <tr><td>並發控制</td><td>樂觀鎖：寫 <code>claimed_by=instance_id</code> → 等 0.5s → 二次讀 → 仍是自己才執行</td><td>含 lease 超時回退機制</td></tr>
+              <tr><td>Web UI</td><td>納入 MVP：<code>ai-mcp ui</code> 子命令、FastAPI + Jinja2、127.0.0.1 本機無認證；設置 <code>AI_MCP_UI_TOKEN</code> 時非 static route 均需 token</td><td>9 個頁面，純後端渲染 + SSE 進度</td></tr>
+              <tr><td>後端架構</td><td>解讀 X：UI / CLI / MCP 三進程共享 <code>application/*</code>，各自 in-process 調用，共享 WAL 模式 SQLite</td><td>不引入 subprocess 反代</td></tr>
+              <tr><td>透傳邊界</td><td>強制非流式、支援多輪 tool_calls、不做重試/容錯</td><td>錯誤原樣冒泡</td></tr>
+              <tr><td>儲存</td><td>SQLite (WAL) + Fernet 加密 api_key</td><td>路徑 <code>~/.ai-mcp-server/db.sqlite3</code></td></tr>
+              <tr><td>技術棧</td><td>Python 3.11+ / mcp SDK / httpx / typer / sqlite3 / cryptography / keyring / FastAPI / Jinja2 / uvicorn</td><td>不上 ORM</td></tr>
+            </tbody>
+          </table>
+
+          <h3>會構成驗收假通過的情況</h3>
+          <ul class="tight">
+            <li>只跑 pytest 通過但 MCP client 拉不起來 server，或拉起來後 tool list 為空。</li>
+            <li>探活返回「全部 true」但其實 vision / tool_call 走的是 fallback（如 4xx 被當成 ok）。</li>
+            <li>capability resolver 返回的能力與實際 invoke 結果不一致。</li>
+            <li>api_key 在 SQLite 中以明文落盤、或在日誌 / 錯誤訊息中出現。</li>
+            <li>「不做」清單（streaming、自動重試、自動 fallback）被悄悄做了。</li>
+          </ul>
+        </section>
+
+        <section id="value">
+          <h2>1. 產品價值</h2>
+          <h3>目標用戶與場景</h3>
+          <ul class="tight">
+            <li><strong>目標用戶</strong>：手上同時持有多個 LLM API key（OpenAI、DeepSeek、Moonshot、SiliconFlow、OpenRouter、Together、vLLM、Ollama…）的開發者，並使用至少一個 MCP client（Claude Desktop / Cursor / Cline）。</li>
+            <li><strong>核心 Job</strong>：在不切換 Agent 配置的前提下，按任務性質讓 Agent 自動挑選最合適的模型（長上下文走 Gemini、視覺走 GPT-4o、推理走 DeepSeek-R1、便宜對話走國產、Embedding 走 BGE 等）。</li>
+          </ul>
+
+          <h3>當前痛點</h3>
+          <table>
+            <thead><tr><th>痛點</th><th>當前做法</th><th>代價</th></tr></thead>
+            <tbody>
+              <tr><td>Agent 只配一個模型</td><td>大多數 MCP client 的 model 設定是全域單選</td><td>其他 API key 與能力閒置</td></tr>
+              <tr><td>模型 metadata 散落</td><td>每家 <code>/v1/models</code> 只返回 id，能力靠用戶記憶</td><td>無法按能力路由</td></tr>
+              <tr><td>key 管理混亂</td><td>vendor 多了之後 .env 變成一張表</td><td>容易誤用、容易洩漏</td></tr>
+              <tr><td>能力驗證靠玄學</td><td>不知道某 endpoint 上某 model 真的支援 vision / tool_call 嗎</td><td>到 Agent 對話中才報錯</td></tr>
+            </tbody>
+          </table>
+
+          <h3>產品價值（用戶可見）</h3>
+          <ul class="tight">
+            <li>登記一次，所有 key 與模型即可被 Agent 統一發現與調用。</li>
+            <li>Agent 透過 <code>list_models</code> 按能力篩選，透過 <code>invoke_model</code> 透傳調用，<strong>不被服務語義污染</strong>。</li>
+            <li>能力標籤可被「探活」驗證，避免「以為能用」。</li>
+            <li>所有 key 本地加密儲存，無雲端、無遙測。</li>
+          </ul>
+
+          <h3>成功信號</h3>
+          <ul class="tight">
+            <li>同一個 Claude Desktop 會話中，Agent 能在 vision 問題上自動選 GPT-4o、在長文檔問題上自動選 Gemini，不需要用戶手動切換 client model 設定。</li>
+            <li><code>endpoint probe --all</code> 跑完後，至少 90% 的模型能拿到 ≥1 個探活確認的 capability。</li>
+            <li>本地 SQLite 中 <code>api_key</code> 欄位無明文，<code>strings db.sqlite3 | grep sk-</code> 無命中。</li>
+          </ul>
+        </section>
+
+        <section id="scope">
+          <h2>2. 範圍</h2>
+          <table>
+            <thead><tr><th>本期範圍 (MVP)</th><th>非目標</th><th>後續階段</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>
+                  <ul class="tight">
+                    <li>CLI 登記 / 查詢 / 刪除 endpoint</li>
+                    <li>OpenAI 兼容協議 list_models / chat / embedding / image_gen / tts / stt / rerank 透傳</li>
+                    <li>10 種能力探活</li>
+                    <li>四來源能力 resolver</li>
+                    <li>6 個 MCP tool + stdio 啟動</li>
+                    <li>SQLite (WAL) + Fernet 加密儲存</li>
+                    <li>LiteLLM metadata 本地快取</li>
+                    <li><strong>探活異步化</strong>：probe_jobs 佇列 + 樂觀鎖 + lease 超時回退</li>
+                    <li><strong>Worker</strong>：MCP server 進程內背景任務 + CLI 同步消化</li>
+                    <li><strong>Web UI</strong>：<code>ai-mcp ui</code> + FastAPI + Jinja2，9 個管理頁面</li>
+                  </ul>
+                </td>
+                <td>
+                  <ul class="tight">
+                    <li>streaming 響應</li>
+                    <li>自動重試、自動 fallback、rate limit</li>
+                    <li>token 計費與用量統計</li>
+                    <li>多用戶、帳號、權限、Web 認證</li>
+                    <li>Anthropic / Gemini 原生協議實作</li>
+                    <li>定時探活、跨機同步、雲端備份</li>
+                    <li>SPA / 前端構建工具鏈（UI 純後端模板）</li>
+                  </ul>
+                </td>
+                <td>
+                  <ul class="tight">
+                    <li>Anthropic / Gemini adapter</li>
+                    <li>定時探活與健康監控</li>
+                    <li>cost-aware 路由建議</li>
+                    <li>HTTP 模式（給遠端 MCP client）</li>
+                    <li>多用戶分租</li>
+                    <li>Web 管理 UI</li>
+                  </ul>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>假設與待用戶確認項</h3>
+          <ul class="tight">
+            <li><strong>假設</strong>：用戶能接受首次啟動時自動建立 <code>~/.ai-mcp-server/</code> 目錄並向系統 keyring 寫入 master key。</li>
+            <li><strong>已落地</strong>：<code>assets/probe/digit_1.wav</code> 已納入倉庫，並可由 <code>scripts/generate_probe_assets.py</code> 重建；stt 探活不再依賴用戶手工補檔。</li>
+            <li><strong>待確認</strong>：LiteLLM metadata 是內建一份 snapshot 進 wheel，還是首次運行時從 GitHub 拉取？默認傾向「內建 snapshot + 可選 <code>ai-mcp meta refresh</code> 拉取最新版」。</li>
+          </ul>
+        </section>
+
+        <section id="baseline">
+          <h2>3. 現況與差距</h2>
+          <h3>當前倉庫狀態</h3>
+          <ul class="tight">
+            <li>已具備 <code>pyproject.toml</code>、<code>src/ai_mcp_server/</code>、<code>tests/</code>、<code>assets/probe/</code>、<code>docs/</code>、CI 與發布 workflow。</li>
+            <li>三入口已落地：<code>ai-mcp</code> CLI、<code>ai-mcp-server</code> stdio MCP server、<code>ai-mcp ui</code> Web UI。</li>
+            <li>本 PRD 是設計與實施同步的源頭文件；發布審查發現的阻斷項需先回寫本文件，再落到 source/test。</li>
+          </ul>
+
+          <h3>外部生態現況</h3>
+          <table>
+            <thead><tr><th>項目</th><th>觀察</th><th>對本期的影響</th></tr></thead>
+            <tbody>
+              <tr><td>MCP Python SDK</td><td>官方 <code>mcp</code> 包穩定，支援 stdio + sse + streamable_http；提供 <code>Server</code> / <code>FastMCP</code> 兩種寫法</td><td>用 <code>FastMCP</code>，schema 與 docstring 自動推導</td></tr>
+              <tr><td>OpenAI <code>/v1/models</code></td><td>只返回 <code>id</code> 和 <code>owned_by</code>，無能力欄位</td><td>必須四來源融合</td></tr>
+              <tr><td>OpenRouter <code>/api/v1/models</code></td><td>返回完整 metadata（context_length、modality、定價、tool_call 支援）</td><td>對於配置為 OpenRouter 的 endpoint，可優先採用其原生 metadata</td></tr>
+              <tr><td>LiteLLM <code>model_prices_and_context_window.json</code></td><td>覆蓋 200+ 主流模型；定期更新</td><td>作為靜態 metadata 主要來源</td></tr>
+              <tr><td>MCP client streaming</td><td>tool response 為一次性 JSON；progress notification 可選但實作彆扭</td><td>本期強制非流式</td></tr>
+            </tbody>
+          </table>
+
+          <h3>差距</h3>
+          <ul class="tight">
+            <li>無任何代碼基線，從零開始。</li>
+            <li><code>assets/probe/digit_1.wav</code> 已提供；若安裝包或本地資產缺失，stt 探活仍需自動降級為 skip，不影響其他能力探活。</li>
+          </ul>
+        </section>
+
+        <section id="journeys">
+          <h2>4. 目標旅程</h2>
+
+          <h3>4.1 首次安裝與登記</h3>
+          <canvas class="diagram flow" data-diagram="install"></canvas>
+          <ol class="diagram-notes tight">
+            <li>用戶 <code>uv tool install ai-mcp-server</code> 安裝。</li>
+            <li>首次運行任意 <code>ai-mcp</code> 命令時自動建立 <code>~/.ai-mcp-server/</code> 與 SQLite。</li>
+            <li>首次需要加密時自動生成 master key 並寫入系統 keyring。</li>
+            <li>用戶執行 <code>ai-mcp endpoint add</code> 完成登記，緊接著 <code>ai-mcp endpoint probe</code> 探活。</li>
+          </ol>
+
+          <h3>4.2 Agent 透過 MCP 調用</h3>
+          <canvas class="diagram flow" data-diagram="agent-call"></canvas>
+          <ol class="diagram-notes tight">
+            <li>MCP client 啟動時拉起 <code>ai-mcp-server</code> 進程（stdio）。</li>
+            <li>client 收到 <code>instructions</code>：「請先調用 <code>usage_guide</code> 取得能力說明」。</li>
+            <li>Agent 視任務需要調用 <code>list_models</code> 篩選能力。</li>
+            <li>如 endpoint 不提供 <code>/v1/models</code>，Agent 先向用戶確認後可調用 <code>add_models</code> 手動登記。</li>
+            <li>如多個模型能力相近，Agent 可調用 <code>model_performance</code> 查看近期成功率與延遲作為選擇依據。</li>
+            <li>Agent 帶上選定的 <code>endpoint + model</code> 調用 <code>invoke_model</code>。</li>
+            <li>MCP server 找對應 adapter，透傳請求；響應原樣返回。</li>
+          </ol>
+
+          <h3>4.3 異常與兜底</h3>
+          <table>
+            <thead><tr><th>場景</th><th>系統行為</th><th>Agent 可見</th></tr></thead>
+            <tbody>
+              <tr><td>上游 4xx（如 key 失效）</td><td>原樣冒泡 status + body</td><td>完整錯誤 JSON，Agent 可決策換 endpoint</td></tr>
+              <tr><td>上游 5xx / 超時</td><td>原樣冒泡，不重試</td><td>完整錯誤，Agent 自行決定是否重試</td></tr>
+              <tr><td>用戶指定 capability 但無模型匹配</td><td><code>list_models</code> 返回空陣列 + hint</td><td>Agent 知道要放寬條件</td></tr>
+              <tr><td>endpoint 從未探活</td><td><code>list_models</code> 標註 <code>probe_status: never</code></td><td>Agent 可建議用戶先 refresh</td></tr>
+              <tr><td>探活時上游限流</td><td>該 capability 標記 <code>probe_status: rate_limited</code>，不污染既有 true</td><td>refresh tool 響應中報告</td></tr>
+              <tr><td>vision 探活素材缺失</td><td>啟動時警告 + 探活時 skip</td><td>不影響其他 capability 探測</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="solution">
+          <h2>5. 產品方案</h2>
+
+          <h3>5.1 CLI 命令</h3>
+<pre><code># endpoint 管理
+ai-mcp endpoint add --name &lt;n&gt; --base-url &lt;url&gt; --key &lt;k&gt; [--provider openai-compat]
+ai-mcp endpoint list [--json]
+ai-mcp endpoint show &lt;name&gt;
+ai-mcp endpoint remove &lt;name&gt;
+
+# 模型與能力
+ai-mcp endpoint probe &lt;name&gt; [--capability text_chat,vision,...]
+ai-mcp endpoint probe --all
+ai-mcp model list [--endpoint &lt;name&gt;] [--capability vision] [--min-context 128000]
+ai-mcp model show &lt;endpoint&gt; &lt;model_id&gt;
+ai-mcp model override &lt;endpoint&gt; &lt;model_id&gt; --capability vision=true
+ai-mcp model override &lt;endpoint&gt; &lt;model_id&gt; --context-length 200000
+
+# metadata
+ai-mcp meta refresh        # 拉取最新 LiteLLM metadata
+
+# MCP server
+ai-mcp-server              # stdio 啟動（給 MCP client 用）</code></pre>
+
+          <h3>5.2 MCP Tool 規格</h3>
+          <h4><code>usage_guide</code></h4>
+          <table>
+            <thead><tr><th>項</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td>入參</td><td>無</td></tr>
+              <tr><td>出參</td><td>結構化 Markdown 文本 + JSON 統計</td></tr>
+              <tr><td>動態內容</td><td>當前已登記 endpoint 數、模型總數、按 capability 的模型分佈、最近探活時間、推薦使用順序</td></tr>
+              <tr><td>靜態 hint</td><td>MCP server <code>instructions</code> 中強制提示：「You MUST call <code>usage_guide</code> first before using any other tool.」</td></tr>
+            </tbody>
+          </table>
+
+          <h4><code>list_models</code></h4>
+          <table>
+            <thead><tr><th>入參</th><th>類型</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><code>capability</code></td><td>string[] (可選)</td><td>過濾必須具備的能力標籤</td></tr>
+              <tr><td><code>min_context_length</code></td><td>int (可選)</td><td>過濾最小上下文長度</td></tr>
+              <tr><td><code>endpoint</code></td><td>string (可選)</td><td>限定 endpoint name</td></tr>
+              <tr><td><code>include_unprobed</code></td><td>bool, 默認 true</td><td>是否包含未探活的模型</td></tr>
+            </tbody>
+          </table>
+          <p class="note">出參：模型陣列，每個元素含 <code>endpoint, model_id, capabilities, context_length, probe_status, capability_source</code>（標明每個 capability 來自哪一來源）。</p>
+
+          <h4><code>invoke_model</code></h4>
+          <table>
+            <thead><tr><th>入參</th><th>類型</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><code>endpoint</code></td><td>string</td><td>endpoint name</td></tr>
+              <tr><td><code>model</code></td><td>string</td><td>model_id</td></tr>
+              <tr><td><code>operation</code></td><td>enum</td><td><code>chat</code> / <code>embedding</code> / <code>image_gen</code> / <code>tts</code> / <code>stt</code> / <code>rerank</code></td></tr>
+              <tr><td><code>payload</code></td><td>object</td><td>原樣透傳給上游 API 的 body（OpenAI 兼容格式）</td></tr>
+            </tbody>
+          </table>
+          <p class="note">出參：透傳上游響應 + 附加 <code>_meta: {endpoint, model, latency_ms, upstream_status}</code>。錯誤時返回 <code>{error: {status, body}}</code>，不拋出。TTS 成功時二進位音訊以 <code>body.audio_base64</code> 返回，並附 <code>audio_bytes_len</code> 與 <code>content_type</code>。</p>
+
+          <h4><code>model_performance</code></h4>
+          <table>
+            <thead><tr><th>入參</th><th>類型</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><code>endpoint</code></td><td>string (可選)</td><td>限定 endpoint name；留空則查全部。</td></tr>
+              <tr><td><code>sort_by</code></td><td>enum, 默認 <code>call_count</code></td><td><code>call_count</code> / <code>success_count</code> / <code>avg_first_byte_ms</code> / <code>avg_prompt_tokens</code> / <code>avg_output_tokens</code>。</td></tr>
+              <tr><td><code>limit</code></td><td>int, 默認 50</td><td>最多返回行數。</td></tr>
+            </tbody>
+          </table>
+          <p class="note">出參：模型陣列，每個元素含 <code>endpoint, model_id, full_id, call_count, success_count, success_rate, avg_first_byte_ms, avg_prompt_tokens, avg_output_tokens, window_days</code>。此 tool 只讀本地聚合性能資料，不做成本估算、不替 Agent 自動路由。</p>
+
+          <h4><code>refresh_endpoint</code></h4>
+          <table>
+            <thead><tr><th>入參</th><th>類型</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><code>endpoint</code></td><td>string (可選)</td><td>留空則全部</td></tr>
+              <tr><td><code>capabilities</code></td><td>string[] (可選)</td><td>留空則按 model metadata 與名稱 hint 生成智能 probe plan；顯式傳入時按指定能力入隊。</td></tr>
+              <tr><td><code>refresh_model_list</code></td><td>bool, 默認 true</td><td>是否先重新拉 /v1/models</td></tr>
+            </tbody>
+          </table>
+          <p class="note">出參：<code>{enqueued, plan, note}</code>。此 tool 只入隊，不等待所有 probe 同步完成；MCP server 進程內 worker 或 CLI worker 會異步消化。</p>
+
+          <h4><code>add_models</code></h4>
+          <table>
+            <thead><tr><th>入參</th><th>類型</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><code>endpoint</code></td><td>string</td><td>endpoint name。</td></tr>
+              <tr><td><code>model_ids</code></td><td>string[]</td><td>一個或多個待手動登記的 model_id。</td></tr>
+              <tr><td><code>context_length</code></td><td>int (可選)</td><td>可選上下文窗口。</td></tr>
+              <tr><td><code>capabilities</code></td><td>string[] (可選)</td><td>可選能力標籤；寫入 override source，視為用戶確認的能力覆寫。</td></tr>
+            </tbody>
+          </table>
+          <p class="note">出參：<code>{endpoint, added, count}</code> 或 <code>{error}</code>。Agent 使用此 tool 前應先向用戶確認模型 id、context length 與能力來源，避免憑空登記不存在模型。</p>
+
+          <h3>5.3 能力路由建議（給 Agent 的引導）</h3>
+          <p class="note">不在服務側做路由；服務只提供能力標籤與篩選 API。<code>usage_guide</code> 中向 Agent 提示常見的選擇模式，例如「長文檔 → 按 context_length 排序」「視覺問題 → 篩 capability=vision」。</p>
+
+          <h3>5.4 Web 管理 UI（<code>ai-mcp ui</code>）</h3>
+          <p>本地單用戶管理頁面，純後端 Jinja2 模板渲染；預設綁定 <code>127.0.0.1</code>、本機無認證；設置 <code>AI_MCP_UI_TOKEN</code> 後，除 static assets 外所有 route（含 <code>/jobs/stream</code> SSE）均需 <code>?token=...</code>。UI 進程 in-process 調用 <code>application/*</code>，與 CLI / MCP 共享同一份業務邏輯。</p>
+<pre><code># 啟動
+ai-mcp ui [--host 127.0.0.1] [--port 8765]
+# 控制台輸出：
+#   ai-mcp ui ready at http://127.0.0.1:8765/
+#   按 Ctrl+C 退出</code></pre>
+
+          <h3>5.5 UI 頁面清單（9 個，全為 MVP）</h3>
+          <table>
+            <thead><tr><th>路由</th><th>頁面</th><th>功能</th></tr></thead>
+            <tbody>
+              <tr><td><code>GET /</code></td><td>Dashboard</td><td>endpoint 總數、模型總數、按 capability 分佈直方圖、最近探活時間、MCP server 狀態提示</td></tr>
+              <tr><td><code>GET /endpoints</code></td><td>Endpoints 列表</td><td>表格顯示所有 endpoint；操作：新增、編輯、刪除</td></tr>
+              <tr><td><code>GET /endpoints/&lt;name&gt;</code></td><td>Endpoint 詳情</td><td>該 endpoint 下所有 model、探活狀態、按鈕「探活此 endpoint」</td></tr>
+              <tr><td><code>GET /models</code></td><td>Models 全表</td><td>跨 endpoint 模型表；可按 capability / min_context / endpoint 篩選</td></tr>
+              <tr><td><code>GET /models/&lt;endpoint&gt;/&lt;model_id&gt;</code></td><td>Model 詳情</td><td>顯示四來源每個 capability 判定值與 source；連結到能力覆寫</td></tr>
+              <tr><td><code>GET /overrides</code></td><td>能力覆寫</td><td>列出所有 override；新增 / 編輯 / 刪除</td></tr>
+              <tr><td><code>GET /probes</code></td><td>探活歷史</td><td>讀 <code>probe_runs</code>；可按 endpoint / model / capability / 時間範圍篩選</td></tr>
+              <tr><td><code>GET /jobs</code></td><td>探活佇列</td><td>顯示 <code>probe_jobs</code> 當前狀態；SSE 推送進度</td></tr>
+              <tr><td><code>GET /meta</code></td><td>Metadata 管理</td><td>顯示 LiteLLM metadata 版本；按鈕「拉取最新」</td></tr>
+            </tbody>
+          </table>
+          <p class="note">寫操作以 form POST 提交，UI route 直接 in-process 調 <code>application/*</code>；不走 subprocess、不走 HTTP 反代到 MCP server。SSE 用於 <code>/jobs</code> 與 <code>/endpoints/&lt;name&gt;</code> 中的探活進度刷新。</p>
+
+          <h3>5.6 探活異步化流程</h3>
+          <p>探活不再阻塞觸發者；改為「入隊 → worker 認領 → 寫回結果」三段式。</p>
+          <ol class="tight">
+            <li><strong>入隊</strong>：UI / CLI / MCP 任一入口都可 <code>INSERT INTO probe_jobs</code>，狀態 <code>pending</code>，無 <code>claimed_by</code>。</li>
+            <li><strong>認領（樂觀鎖）</strong>：
+              <ul class="tight">
+                <li>worker 啟動時生成 <code>instance_id = uuid4()</code>。</li>
+                <li><code>UPDATE probe_jobs SET claimed_by=instance_id, claimed_at=now, status='claiming' WHERE id=? AND claimed_by IS NULL</code>。</li>
+                <li>等 0.5 秒；<code>SELECT claimed_by FROM probe_jobs WHERE id=?</code>；如仍是自己 → <code>status='running'</code> 進入執行，否則 noop。</li>
+              </ul>
+            </li>
+            <li><strong>執行</strong>：跑 provider 探活 → 寫 <code>probe_runs</code> raw 響應 → 更新 <code>models.capabilities_json</code>（透過 resolver）→ <code>UPDATE probe_jobs SET status='done', finished_at=now</code>。</li>
+            <li><strong>lease 超時回退</strong>：背景定期掃描 <code>status IN ('claiming','running') AND lease_until &lt; now</code>，重置為 <code>pending, claimed_by=NULL</code>（孤兒任務恢復）。</li>
+            <li><strong>失敗</strong>：探活內部錯誤 → <code>status='failed'</code>，<code>error</code> 欄位記原因；不重試（用戶自行重新入隊）。</li>
+          </ol>
+          <p class="note">Worker 承擔：<strong>(δ)</strong> <code>ai-mcp-server</code> MCP 進程內以 asyncio task 常駐輪詢 + <strong>(γ)</strong> <code>ai-mcp endpoint probe</code> CLI 也跑 worker loop 直到佇列清空。兩者用同一份 worker 代碼，靠樂觀鎖避免並發雙跑。</p>
+        </section>
+
+        <section id="architecture">
+          <h2>6. 架構擴展</h2>
+
+          <h3>6.1 整體架構</h3>
+          <canvas class="diagram arch" data-diagram="arch"></canvas>
+          <ol class="diagram-notes tight">
+            <li><strong>入口層</strong>：三個獨立進程入口共享 <code>application/*</code>。<code>server.py</code>（stdio MCP）；<code>cli.py</code>（typer CLI）；<code>web/app.py</code>（FastAPI + Jinja2，由 <code>ai-mcp ui</code> 子命令拉起 uvicorn）。</li>
+            <li><strong>編排層 application/</strong>：endpoint 管理、模型發現、capability 解析、<strong>probe_jobs 入隊與消化</strong>；無 IO 細節。CLI / UI / MCP route 都直接 import。</li>
+            <li><strong>Worker 層</strong>：<code>application/worker.py</code> 提供 <code>claim_one()</code> / <code>run_loop()</code>；MCP server 進程啟動時 asyncio task 常駐輪詢，CLI <code>endpoint probe</code> 也跑直到 queue 清空。</li>
+            <li><strong>Provider 層 providers/</strong>：ABC + OpenAICompat 實作；負責協議格式、HTTP 細節、錯誤碼透傳。</li>
+            <li><strong>Capability 層</strong>：static_map（內建表）、litellm_meta（拉取/快取）、resolver（四來源融合）。</li>
+            <li><strong>Probe 層</strong>：每能力一個模組，輸入 (adapter, model_id) → ProbeResult。</li>
+            <li><strong>Storage 層</strong>：<code>sqlite3</code>（連線時設 <code>PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000</code>）+ Fernet + keyring；DAO 函數薄。</li>
+            <li><strong>架構原則「解讀 X」</strong>：三進程不共享記憶體、各自 in-process 調 application；共享真相在 SQLite（WAL 多進程併發安全）。</li>
+          </ol>
+
+          <h3>6.2 倉庫結構</h3>
+<pre><code>ai-mcp-server/
+├── pyproject.toml
+├── AGENTS.md
+├── docs/prd/ai-mcp-server-v1/index.html
+├── assets/probe/
+│   ├── digit_1.png         # vision 探活素材
+│   └── digit_1.wav         # stt 探活素材
+├── src/ai_mcp_server/
+│   ├── __init__.py
+│   ├── server.py           # MCP server 入口 (ai-mcp-server)
+│   ├── cli.py              # CLI 入口 (ai-mcp; 含 ui / endpoint / model / meta / worker 子命令)
+│   ├── application/
+│   │   ├── endpoint_service.py
+│   │   ├── model_discovery.py
+│   │   ├── probe_jobs.py        # enqueue / claim / lease / list
+│   │   ├── worker.py            # claim_one / run_loop / lease_sweeper
+│   │   ├── capability_query.py
+│   │   └── meta_service.py
+│   ├── providers/
+│   ├── capability/
+│   ├── probes/
+│   ├── storage/
+│   │   ├── db.py                # WAL + busy_timeout + migration
+│   │   ├── crypto.py
+│   │   └── dao.py
+│   ├── web/
+│   │   ├── app.py               # FastAPI app factory
+│   │   ├── routes/
+│   │   │   ├── dashboard.py
+│   │   │   ├── endpoints.py
+│   │   │   ├── models.py
+│   │   │   ├── overrides.py
+│   │   │   ├── probes.py
+│   │   │   ├── jobs.py          # 含 SSE endpoint
+│   │   │   └── meta.py
+│   │   ├── templates/           # Jinja2
+│   │   │   ├── base.html
+│   │   │   ├── dashboard.html
+│   │   │   └── ...
+│   │   └── static/              # 樸素 CSS，不引入前端構建
+│   ├── models/
+│   └── utils/
+└── tests/{unit,integration,conftest.py}</code></pre>
+
+          <h3>6.3 代碼變更影響矩陣</h3>
+          <table>
+            <thead>
+              <tr><th>層級</th><th>文件或模組</th><th>當前職責</th><th>計劃修改</th><th>影響</th><th>驗證</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>tooling</code></td><td><code>pyproject.toml</code></td><td>不存在</td><td>新建：依賴（mcp / httpx / typer / cryptography / keyring / pydantic）、entry points（<code>ai-mcp</code> / <code>ai-mcp-server</code>）、ruff / mypy 配置</td><td><code>uv sync</code> 可解依賴，CLI 與 server 可被 <code>uv run</code> 拉起</td><td><code>uv run ai-mcp --help</code></td></tr>
+              <tr><td><code>storage</code></td><td><code>storage/db.py</code></td><td>不存在</td><td>新建：SQLite 連線、初始化三張表、migration 編號</td><td>首次運行自動建表</td><td>pytest 覆蓋連線、建表、二次運行不重建</td></tr>
+              <tr><td><code>storage</code></td><td><code>storage/crypto.py</code></td><td>不存在</td><td>新建：Fernet 包裝、master key 取得（env &gt; keyring &gt; 生成）</td><td>api_key 加密寫入</td><td>pytest + <code>strings db.sqlite3</code> 無命中</td></tr>
+              <tr><td><code>storage</code></td><td><code>storage/dao.py</code></td><td>不存在</td><td>新建：endpoints / models / overrides 三套 CRUD</td><td>編排層僅依賴 DAO</td><td>pytest 隔離 DB 覆蓋 CRUD</td></tr>
+              <tr><td><code>providers</code></td><td><code>providers/base.py</code></td><td>不存在</td><td>新建：<code>ProviderAdapter</code> ABC，方法 <code>list_models / chat / embed / image_gen / tts / stt / rerank</code></td><td>所有 provider 必須實作；為 Anthropic 預留</td><td>mypy + ABC 實例化測試</td></tr>
+              <tr><td><code>providers</code></td><td><code>providers/openai_compat.py</code></td><td>不存在</td><td>新建：用 httpx 對接 /v1/models 與 /v1/* 路徑；錯誤原樣冒泡</td><td>覆蓋首期所有上游</td><td>對 mock httpx 跑單測 + 真實 endpoint smoke</td></tr>
+              <tr><td><code>providers</code></td><td><code>providers/factory.py</code></td><td>不存在</td><td>新建：按 <code>provider_type</code> 路由到 adapter 實例</td><td>編排層不知道具體 adapter</td><td>pytest 覆蓋路由</td></tr>
+              <tr><td><code>capability</code></td><td><code>capability/static_map.py</code></td><td>不存在</td><td>新建：內建 model_id 模式 → capability set 的字典（覆蓋 OpenAI / Claude / Gemini / DeepSeek / Qwen / Moonshot 等常見前綴）</td><td>resolver 第四級兜底</td><td>pytest 覆蓋若干典型 model_id 命中</td></tr>
+              <tr><td><code>capability</code></td><td><code>capability/litellm_meta.py</code></td><td>不存在</td><td>新建：內建 snapshot + 可選遠端拉取；本地 JSON 快取</td><td>resolver 第三級</td><td>pytest mock 網路 + 離線降級測試</td></tr>
+              <tr><td><code>capability</code></td><td><code>capability/resolver.py</code></td><td>不存在</td><td>新建：合併四來源；返回時保留 <code>capability_source</code> 標註</td><td>tool 層、CLI 層統一入口</td><td>pytest 覆蓋四來源衝突案例</td></tr>
+              <tr><td><code>probes</code></td><td><code>probes/*.py</code></td><td>不存在</td><td>新建：10 個 probe 模組 + ProbeResult dataclass + 統一「1」素材</td><td>探活輸出統一可被 resolver 寫回</td><td>pytest mock adapter + 真實 endpoint 抽測</td></tr>
+              <tr><td><code>application</code></td><td><code>application/*.py</code></td><td>不存在</td><td>新建：endpoint CRUD / model discovery / probe batch / capability query</td><td>CLI 與 MCP tool handler 共用</td><td>pytest 覆蓋編排語義</td></tr>
+              <tr><td><code>cli</code></td><td><code>cli.py</code></td><td>不存在</td><td>新建：typer app；endpoint / model / meta 子命令</td><td>用戶可登記、查詢、覆寫</td><td>typer CliRunner 單測 + 真實命令 smoke</td></tr>
+              <tr><td><code>mcp</code></td><td><code>server.py</code></td><td>不存在</td><td>新建：FastMCP 註冊 6 個 tool、設定 <code>instructions</code></td><td>MCP client 可拉起並調用</td><td>mcp inspector + Claude Desktop 真實串通</td></tr>
+              <tr><td><code>assets</code></td><td><code>assets/probe/digit_1.png</code></td><td>不存在</td><td>新建：白底黑色「1」的 64x64 PNG（生成腳本一次性）</td><td>vision 探活素材</td><td>檔案存在 + 可被 PIL 讀取</td></tr>
+              <tr><td><code>assets</code></td><td><code>assets/probe/digit_1.wav</code></td><td>已納入</td><td>由 <code>scripts/generate_probe_assets.py</code> 生成；缺失時 stt 探活降級為 skip</td><td>stt 探活素材可隨包發布</td><td><code>file assets/probe/digit_1.wav</code> 顯示 16kHz mono PCM WAV</td></tr>
+              <tr><td><code>storage</code></td><td><code>storage/db.py</code>（補強）</td><td>新建</td><td>連線時設 <code>PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000</code>；新增 <code>probe_jobs</code> 表 schema 與 migration</td><td>支援三進程並發讀寫</td><td>pytest 多進程同時寫測試</td></tr>
+              <tr><td><code>application</code></td><td><code>application/probe_jobs.py</code></td><td>不存在</td><td>新建：enqueue、list、樂觀鎖 claim、lease 回退</td><td>UI / CLI / MCP 共用入隊與查詢</td><td>pytest 模擬兩個 instance 搶 claim</td></tr>
+              <tr><td><code>application</code></td><td><code>application/worker.py</code></td><td>不存在</td><td>新建：<code>instance_id = uuid4()</code>、<code>claim_one()</code>（含 0.5s 二次確認）、<code>run_loop()</code>、<code>lease_sweeper()</code></td><td>MCP server 與 CLI 共用 worker 代碼</td><td>pytest + 真實 sqlite 並發測試</td></tr>
+              <tr><td><code>mcp</code></td><td><code>server.py</code>（補強）</td><td>新建</td><td>啟動時 <code>asyncio.create_task(worker.run_loop())</code> 常駐；shutdown 時優雅停止</td><td>Claude Desktop 拉起 MCP 後自動消化探活佇列</td><td>integration 啟動 server 後入隊一個 job，預期被消化</td></tr>
+              <tr><td><code>cli</code></td><td><code>cli.py</code>（補強）</td><td>新建</td><td>新增 <code>ai-mcp ui</code>、<code>ai-mcp worker</code>、<code>ai-mcp endpoint probe</code> 改為入隊 + 同步跑 worker loop 直到清空</td><td>CLI 也能驅動消化，無 MCP server 也能跑</td><td>typer CliRunner + 真實命令 smoke</td></tr>
+              <tr><td><code>web</code></td><td><code>web/app.py</code></td><td>不存在</td><td>新建：FastAPI app factory、Jinja2 模板註冊、靜態目錄掛載、127.0.0.1 綁定預設</td><td><code>ai-mcp ui</code> 可拉起 uvicorn</td><td>httpx async client 對 ASGI app 整合測試</td></tr>
+              <tr><td><code>web</code></td><td><code>web/routes/*.py</code></td><td>不存在</td><td>新建 9 個頁面 route（Dashboard / Endpoints / Endpoint detail / Models / Model detail / Overrides / Probes / Jobs / Meta）；jobs 含 SSE</td><td>UI 全部頁面就緒</td><td>各 route 對 ASGI 跑 smoke + Jinja 渲染 snapshot</td></tr>
+              <tr><td><code>web</code></td><td><code>web/templates/*.html</code></td><td>不存在</td><td>新建：<code>base.html</code> 含側邊導航；每頁一個模板；樸素 CSS，無前端構建</td><td>UI 視覺一致</td><td>真實瀏覽器打開所有頁面截圖</td></tr>
+              <tr><td><code>models</code></td><td><code>models/enums.py</code> / <code>models/schemas.py</code></td><td>不存在</td><td>新建：<code>Capability</code>、<code>ProbeStatus</code>、<code>JobStatus(pending/claiming/running/done/failed)</code>、<code>EndpointDTO</code>、<code>ProbeJobDTO</code> 等</td><td>共用型別契約</td><td>mypy</td></tr>
+            </tbody>
+          </table>
+
+          <h3>6.4 對外契約</h3>
+          <ul class="tight">
+            <li><strong>CLI 契約</strong>：見 §5.1，命令名與參數穩定；新增子命令不破壞既有。</li>
+            <li><strong>MCP tool 契約</strong>：6 個 tool 的 name、入參 schema、出參結構為穩定契約；演進時新增可選欄位、不刪除既有欄位。</li>
+            <li><strong>Provider 契約</strong>：上游 API 響應原樣透傳；僅附加 <code>_meta</code>，不修改 body。</li>
+          </ul>
+        </section>
+
+        <section id="data">
+          <h2>7. 數據與資料庫規劃</h2>
+
+          <h3>7.1 ER 視圖</h3>
+          <canvas class="diagram er" data-diagram="er"></canvas>
+          <ol class="diagram-notes tight">
+            <li><code>endpoints</code> 是根表，主鍵 <code>id</code>；存 (name 唯一, base_url, api_key_enc, provider_type, created_at)。</li>
+            <li><code>models</code> 多對一引用 <code>endpoints</code>；(endpoint_id, model_id) 聯合主鍵；存 capability 探活結果與 metadata 緩存。</li>
+            <li><code>overrides</code> 多對一引用 <code>models</code>；(endpoint_id, model_id, capability_key) 聯合主鍵；存用戶手動覆寫。</li>
+            <li><code>probe_runs</code> 記錄歷次探活的 raw 響應，便於追溯；無 FK，按 (endpoint_id, model_id) 字串關聯。</li>
+            <li><code>probe_jobs</code> 探活任務佇列；含 <code>claimed_by</code>（worker instance_id）、<code>claimed_at</code>、<code>lease_until</code>、<code>status</code>；UI / CLI / MCP 任一入隊。</li>
+          </ol>
+
+          <h3>7.2 Schema</h3>
+<pre><code>-- endpoints
+CREATE TABLE endpoints (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  name          TEXT NOT NULL UNIQUE,
+  base_url      TEXT NOT NULL,
+  api_key_enc   BLOB NOT NULL,        -- Fernet ciphertext
+  provider_type TEXT NOT NULL DEFAULT 'openai-compat',
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- models
+CREATE TABLE models (
+  endpoint_id        INTEGER NOT NULL REFERENCES endpoints(id) ON DELETE CASCADE,
+  model_id           TEXT NOT NULL,
+  capabilities_json  TEXT NOT NULL DEFAULT '{}',  -- {cap: {value, source, probed_at}}
+  context_length     INTEGER,
+  raw_meta_json      TEXT,                         -- 上游 /v1/models 原始 item
+  last_discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (endpoint_id, model_id)
+);
+
+-- overrides
+CREATE TABLE overrides (
+  endpoint_id    INTEGER NOT NULL,
+  model_id       TEXT NOT NULL,
+  capability_key TEXT NOT NULL,         -- e.g. 'vision', 'context_length'
+  value_json     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (endpoint_id, model_id, capability_key)
+);
+
+-- probe_runs
+CREATE TABLE probe_runs (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint_id  INTEGER NOT NULL,
+  model_id     TEXT NOT NULL,
+  capability   TEXT NOT NULL,
+  ok           INTEGER NOT NULL,
+  latency_ms   INTEGER,
+  raw_json     TEXT,
+  error        TEXT,
+  ran_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_probe_runs_lookup ON probe_runs(endpoint_id, model_id, capability, ran_at);
+
+-- probe_jobs (探活任務佇列)
+CREATE TABLE probe_jobs (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint_id   INTEGER NOT NULL REFERENCES endpoints(id) ON DELETE CASCADE,
+  model_id      TEXT NOT NULL,
+  capability    TEXT NOT NULL,        -- 待探活的 capability key
+  status        TEXT NOT NULL DEFAULT 'pending',
+                  -- pending | claiming | running | done | failed
+  priority      INTEGER NOT NULL DEFAULT 0,
+  claimed_by    TEXT,                  -- worker instance_id (UUID)
+  claimed_at    TEXT,
+  lease_until   TEXT,                  -- claim 後預估完成時限，超時可被回退
+  finished_at   TEXT,
+  error         TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_probe_jobs_pending ON probe_jobs(status, priority DESC, id ASC)
+  WHERE status='pending';
+CREATE INDEX idx_probe_jobs_lease ON probe_jobs(status, lease_until)
+  WHERE status IN ('claiming','running');
+
+-- 連線初始化
+PRAGMA journal_mode=WAL;
+PRAGMA busy_timeout=5000;
+
+-- migrations
+CREATE TABLE _schema_version (version INTEGER PRIMARY KEY);</code></pre>
+
+          <h3>7.3 變更與兼容性</h3>
+          <table>
+            <thead><tr><th>對象</th><th>變更</th><th>原因</th><th>兼容性</th><th>測試</th></tr></thead>
+            <tbody>
+              <tr><td><code>endpoints</code></td><td>新建表</td><td>持久化用戶登記的上游</td><td>初版，無歷史</td><td>建表 + CRUD + name UNIQUE 衝突測試</td></tr>
+              <tr><td><code>models</code></td><td>新建表</td><td>緩存模型發現結果與能力</td><td>初版</td><td>聯合主鍵 + 級聯刪除測試</td></tr>
+              <tr><td><code>overrides</code></td><td>新建表</td><td>用戶覆寫優先級最高</td><td>初版</td><td>resolver 衝突合併測試</td></tr>
+              <tr><td><code>probe_runs</code></td><td>新建表</td><td>探活歷史追溯</td><td>初版，可選表</td><td>插入 + 按時間查詢</td></tr>
+              <tr><td><code>probe_jobs</code></td><td>新建表</td><td>探活異步化的任務佇列；UI / CLI / MCP 共用</td><td>初版</td><td>樂觀鎖並發測試 + lease 超時回退測試</td></tr>
+              <tr><td>WAL journal mode</td><td>所有連線開啟</td><td>三進程並發讀寫共享 DB</td><td>單機 SQLite 標配；多寫者透過 busy_timeout 排隊</td><td>多進程同時寫測試</td></tr>
+              <tr><td><code>_schema_version</code></td><td>新建表</td><td>後續 migration 編號</td><td>初版設為 1</td><td>migration 函數冪等測試</td></tr>
+            </tbody>
+          </table>
+
+          <h3>7.4 加密、回滾、隱私</h3>
+          <ul class="tight">
+            <li><strong>加密</strong>：<code>api_key_enc</code> 使用 Fernet（AES-128-CBC + HMAC）；master key 來自 env <code>AI_MCP_MASTER_KEY</code> &gt; 系統 keyring &gt; 首次運行自動生成並寫入 keyring。</li>
+            <li><strong>回滾</strong>：MVP schema 不需 down migration；直接刪除 <code>~/.ai-mcp-server/db.sqlite3</code> 重建即可（用戶會被警示）。</li>
+            <li><strong>遺留可讀性</strong>：master key 一旦遺失，所有 <code>api_key_enc</code> 不可解密 → CLI 在加密失敗時提示用戶 re-add endpoint。</li>
+            <li><strong>隱私</strong>：無遙測；所有 IO 限於本機 SQLite、本機 keyring、向用戶登記的 base_url 發 HTTPS。</li>
+            <li><strong>日誌</strong>：所有日誌路徑禁止輸出 <code>api_key</code> 明文與 <code>Authorization</code> header；錯誤響應原樣冒泡時需 mask 上游 echo back 的 key（如有）。</li>
+          </ul>
+        </section>
+
+        <section id="implementation">
+          <h2>8. 實施計劃</h2>
+          <p>分 9 個里程碑，每個獨立可測。</p>
+          <table>
+            <thead><tr><th>#</th><th>里程碑</th><th>交付物</th><th>主要文件</th><th>驗證</th></tr></thead>
+            <tbody>
+              <tr><td>M1</td><td>腳手架</td><td><code>pyproject.toml</code> + 目錄骨架 + typer CLI 入口</td><td><code>pyproject.toml</code>, <code>src/ai_mcp_server/{cli,__init__}.py</code></td><td><code>uv sync</code>, <code>uv run ai-mcp --help</code></td></tr>
+              <tr><td>M2</td><td>儲存層</td><td>SQLite schema (含 WAL + busy_timeout)、Fernet 加密、DAO</td><td><code>storage/*.py</code></td><td>pytest 隔離 DB + <code>strings</code> 驗證無明文 + 多進程同時寫</td></tr>
+              <tr><td>M3</td><td>Provider ABC + OpenAI 兼容</td><td><code>ProviderAdapter</code> + <code>OpenAICompatAdapter</code> + factory</td><td><code>providers/*.py</code></td><td>pytest mock httpx + 對真實 endpoint smoke</td></tr>
+              <tr><td>M4</td><td>CLI endpoint 子命令</td><td>add / list / show / remove</td><td><code>cli.py</code>, <code>application/endpoint_service.py</code></td><td>typer CliRunner + 真實命令跑通</td></tr>
+              <tr><td>M5</td><td>Capability 來源層</td><td>static_map + litellm_meta + resolver（四來源融合）</td><td><code>capability/*.py</code></td><td>pytest 覆蓋四來源衝突</td></tr>
+              <tr><td>M6</td><td>探活 + probe_jobs 入隊</td><td>10 個 probe + probe_jobs 表 + enqueue API + 探活素材</td><td><code>probes/*.py</code>, <code>application/probe_jobs.py</code></td><td>pytest 覆蓋 enqueue + 真實 endpoint 探活</td></tr>
+              <tr><td>M7</td><td>Worker（樂觀鎖）</td><td><code>worker.py</code> 含 instance_id、claim_one 含 0.5s 二次確認、run_loop、lease_sweeper；CLI <code>ai-mcp endpoint probe</code> 改為入隊 + 同步消化</td><td><code>application/worker.py</code></td><td>並發測試：兩 instance 同時搶 100 個 job，無雙跑、無遺漏</td></tr>
+              <tr><td>M8</td><td>MCP Server + 背景 worker</td><td>FastMCP 註冊 6 個 tool + <code>instructions</code> + stdio 入口 + 啟動時 spawn worker task</td><td><code>server.py</code></td><td>mcp inspector + Claude Desktop 真實串通 + 入隊一個 job 預期被消化</td></tr>
+              <tr><td>M9</td><td>Web UI</td><td><code>ai-mcp ui</code> 子命令 + FastAPI app + 9 個頁面 + Jinja2 模板 + SSE 進度</td><td><code>web/**</code></td><td>瀏覽器跑通 9 個頁面截圖 + SSE 進度刷新</td></tr>
+            </tbody>
+          </table>
+
+          <h3>8.1 依賴與順序</h3>
+          <ul class="tight">
+            <li>M1 → M2 → M3 / M5（可並行）→ M4 → M6 → M7 → M8 / M9（可並行）。</li>
+            <li>M7 依賴 M6 的 probe_jobs 表與 enqueue API。</li>
+            <li>M8 / M9 都依賴 M7 的 worker；M8 用內建 task，M9 不啟動 worker（只入隊）。</li>
+          </ul>
+
+          <h3>8.2 回滾</h3>
+          <ul class="tight">
+            <li>任何里程碑失敗，回退至上一里程碑 tag；MVP 階段 SQLite 直接刪庫重建。</li>
+          </ul>
+        </section>
+
+        <section id="dev-reality">
+          <h2>9. 開發風險（Developer Reality）</h2>
+          <table>
+            <thead><tr><th>風險</th><th>觸發場景</th><th>緩解</th></tr></thead>
+            <tbody>
+              <tr><td>探活 false negative</td><td>上游 429 / 排隊 / 暫時超時被當成「不支援」</td><td>區分 <code>ok / not_supported / rate_limited / timeout / error</code> 五態；rate_limited / timeout 不污染既有 true</td></tr>
+              <tr><td>探活 false positive</td><td>上游對未知 tool_call schema 返回空字串而非報錯</td><td>探活時校驗響應結構（tool_call 必須有 <code>tool_calls</code> 欄位、vision 必須命中「1」）</td></tr>
+              <tr><td>不同 endpoint 的 model_id 撞名</td><td>OpenAI 和 OpenRouter 都有 <code>gpt-4o</code></td><td>所有對外 ID 統一為 <code>{endpoint_name}/{model_id}</code>；list_models / invoke_model 均接受此複合 id</td></tr>
+              <tr><td>OpenAI 兼容協議方言差異</td><td>Anthropic-via-OpenAI、Gemini-via-OpenAI、本地 vLLM 在 <code>tool_calls</code> / <code>finish_reason</code> 欄位上略有不同</td><td>透傳不改寫；在 README 標明已知差異；後續按需在 adapter 內加 quirk 開關</td></tr>
+              <tr><td>master key 遺失</td><td>用戶清空 keychain 或換機</td><td>CLI 解密失敗時清晰報錯：「請設置 AI_MCP_MASTER_KEY 或重新登記 endpoint」</td></tr>
+              <tr><td>MCP stdio 啟動失敗難診斷</td><td>用戶在 Claude Desktop 配置後黑屏</td><td>提供 <code>ai-mcp-server --debug</code>，輸出到 stderr；README 給 Claude Desktop config 範例</td></tr>
+              <tr><td>LiteLLM metadata 結構演進</td><td>上游欄位更名</td><td>internal mapping 函數隔離；解析失敗降級為「無 metadata」，不影響其他來源</td></tr>
+              <tr><td>image_gen / tts 探活費用</td><td>批量探活時可能花幾分錢～幾毛錢</td><td>CLI <code>endpoint probe</code> 顯示「以下能力探活會產生上游費用 (image_gen, tts)，是否繼續? [y/N]」</td></tr>
+              <tr><td>非流式對長響應的影響</td><td>長文生成可能讓 MCP tool call 看起來「卡住」</td><td>記錄到 README；後續用 MCP progress notification 緩解</td></tr>
+              <tr><td>Anthropic 預留接口走樣</td><td>未來實作時發現 ABC 不夠用</td><td>ABC 方法簽名按「OpenAI 兼容超集」設計；message 結構用 <code>list[dict]</code>，不過度封裝</td></tr>
+              <tr><td>樂觀鎖未生效導致雙跑</td><td>兩個 worker 同時跑 <code>UPDATE ... WHERE claimed_by IS NULL</code></td><td>條件 UPDATE 在 SQLite 是原子的；再加 0.5s 二次讀；最終 status 流轉只允許 pending → claiming → running → done/failed 一向單調</td></tr>
+              <tr><td>Worker 孤兒任務</td><td>worker 崩潰時 <code>status='running'</code> 永不結束</td><td><code>lease_sweeper</code> 定期掃描 <code>lease_until &lt; now</code> 的 claiming/running 重置為 pending；探活開始時設 <code>lease_until = now + 5min</code>，過程中可續租</td></tr>
+              <tr><td>三進程共寫 SQLite</td><td>UI / CLI / MCP server 同時寫</td><td>WAL 模式 + <code>busy_timeout=5000</code>；長交易禁用；寫操作短小</td></tr>
+              <tr><td>SSE 連線斷開後 UI 看不到進度</td><td>瀏覽器或網路抖動</td><td>SSE 帶 <code>Last-Event-Id</code>；前端重連時用最後一個 job id 補拉</td></tr>
+              <tr><td>UI 進程意外被外網訪問</td><td>用戶誤改 <code>--host 0.0.0.0</code></td><td>預設 127.0.0.1；改為非 loopback 時 CLI 加大紅警告</td></tr>
+              <tr><td>UI 與 MCP server 共寫 capabilities</td><td>探活 worker 與用戶 override 同時寫 capabilities_json</td><td>所有寫入 capabilities 都走 resolver；override 是覆蓋層不寫主表的同一欄位</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="testing">
+          <h2>10. 測試與驗收</h2>
+
+          <h3>10.1 測試矩陣</h3>
+          <table>
+            <thead><tr><th>層級</th><th>類型</th><th>內容</th><th>命令</th></tr></thead>
+            <tbody>
+              <tr><td>儲存</td><td>unit</td><td>schema 建表冪等、Fernet 加密解密、DAO CRUD</td><td><code>uv run pytest tests/unit/storage</code></td></tr>
+              <tr><td>provider</td><td>unit</td><td>OpenAI 兼容 list_models / chat / embed 各端點請求拼裝與錯誤透傳</td><td><code>uv run pytest tests/unit/providers</code></td></tr>
+              <tr><td>capability</td><td>unit</td><td>resolver 四來源衝突優先級、static_map 命中、litellm 解析、離線降級</td><td><code>uv run pytest tests/unit/capability</code></td></tr>
+              <tr><td>probe</td><td>unit</td><td>每個 probe 對 mock adapter 的 ok / not_supported / rate_limited 路徑</td><td><code>uv run pytest tests/unit/probes</code></td></tr>
+              <tr><td>cli</td><td>integration</td><td>typer CliRunner 跑 endpoint add / list / probe / model override</td><td><code>uv run pytest tests/integration/cli</code></td></tr>
+              <tr><td>MCP server</td><td>integration</td><td>mcp SDK in-memory transport 跑 6 個 tool 的 schema 與響應；server 啟動時 worker task 消化已入隊 job</td><td><code>uv run pytest tests/integration/mcp</code></td></tr>
+              <tr><td>worker</td><td>integration</td><td>兩個 worker 實例同時啟動，搶 100 個 pending job：無雙跑、無遺漏；lease_sweeper 能把孤兒任務回退</td><td><code>uv run pytest tests/integration/worker</code></td></tr>
+              <tr><td>web</td><td>integration</td><td>httpx 對 ASGI app 跑 9 個頁面 200 OK；form POST 寫操作落 DB；SSE 接收一個 job 完成事件</td><td><code>uv run pytest tests/integration/web</code></td></tr>
+              <tr><td>lint / type</td><td>static</td><td>ruff / mypy</td><td><code>uv run ruff check src tests &amp;&amp; uv run mypy src</code></td></tr>
+            </tbody>
+          </table>
+
+          <h3>10.2 真實串通驗收（硬門禁）</h3>
+          <ol class="tight">
+            <li>登記至少 2 個真實 endpoint（如 OpenRouter + 本地 Ollama）：<br/><code>uv run ai-mcp endpoint add --name openrouter --base-url https://openrouter.ai/api/v1 --key sk-...</code></li>
+            <li>跑探活：<code>uv run ai-mcp endpoint probe --all</code>（CLI 模式：入隊 + 同步消化 worker loop），預期 ≥90% model 拿到至少 1 個 ok 的 capability。</li>
+            <li>用 mcp inspector 拉起：<code>npx @modelcontextprotocol/inspector uv run ai-mcp-server</code>，校驗 6 個 tool 出現、schema 正確。</li>
+            <li>啟動 web UI：<code>uv run ai-mcp ui</code>，瀏覽器打開 <code>http://127.0.0.1:8765/</code>，依序驗證 9 個頁面渲染正常。</li>
+            <li>在 UI 的「Endpoint 詳情」點「探活」→ <code>/jobs</code> 頁面看 SSE 進度條推進 → 跑完後 Models 表 capability 標籤更新。</li>
+            <li>並發驗證：UI 點探活的同時，CLI 也跑 <code>ai-mcp endpoint probe --all</code>，預期無雙跑（樂觀鎖生效），所有 job 最終都 done 或 failed。</li>
+            <li>在 Claude Desktop 配置：
+<pre><code>{
+  "mcpServers": {
+    "ai-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/ai-mcp-server", "ai-mcp-server"]
+    }
+  }
+}</code></pre>
+            </li>
+            <li>在 Claude Desktop 對話中依次驗證：
+              <ul class="tight">
+                <li><strong>chat 透傳</strong>：要求 Claude 透過 <code>invoke_model</code> 走 OpenRouter 上某 chat model，得到回答。</li>
+                <li><strong>vision 透傳</strong>：傳一張圖，要求 Claude 路由到具備 vision 能力的 model 進行識別。</li>
+                <li><strong>embedding 透傳</strong>：要求 Claude 透過 <code>invoke_model</code> 取一段文字的 embedding，返回向量長度正確。</li>
+                <li><strong>model_performance</strong>：要求 Claude 查詢近期模型成功率與首字延遲，確認返回本地聚合指標。</li>
+                <li><strong>refresh_endpoint</strong>：透過 MCP 調用此 tool 入隊；確認 MCP server 進程內的背景 worker 自動消化並寫回。</li>
+                <li><strong>add_models</strong>：對不暴露 <code>/v1/models</code> 的測試 endpoint 手動登記一個模型，確認 <code>list_models</code> 可見。</li>
+              </ul>
+            </li>
+            <li>驗證 <code>~/.ai-mcp-server/db.sqlite3</code> 中 <code>api_key_enc</code> 為二進位密文：<code>strings db.sqlite3 | grep -E '^sk-'</code> 無命中。</li>
+          </ol>
+
+          <h3>10.3 不能宣告完成的情況</h3>
+          <ul class="tight">
+            <li>10.2 任一步驟未跑通，僅靠 pytest 通過不算完成。</li>
+            <li>探活對至少一個真實 endpoint 全部失敗。</li>
+            <li>api_key 在任何路徑（DB / 日誌 / stderr / MCP 響應）以明文出現。</li>
+          </ul>
+        </section>
+
+        <section id="security">
+          <h2>11. 安全、隱私與權限</h2>
+          <ul class="tight">
+            <li><strong>敏感資料</strong>：api_key 加密儲存；master key 在 system keyring 或 env；任何路徑禁止明文輸出。</li>
+            <li><strong>留存</strong>：所有資料只在本機；無雲端、無遙測。</li>
+            <li><strong>日誌脫敏</strong>：日誌中 <code>Authorization</code> header 與 <code>api_key</code> 字段強制 mask；錯誤透傳前掃描上游 echo 並 mask。</li>
+            <li><strong>權限</strong>：MCP server 本身為當前用戶進程；無多用戶 / 無權限分層。</li>
+            <li><strong>濫用風險</strong>：用戶可能用 invoke_model 跑昂貴模型（如 image_gen）→ usage_guide 中明示「該操作可能產生上游費用」，但服務側不做攔截。</li>
+            <li><strong>探活費用透明</strong>：CLI <code>endpoint probe</code> 在執行涉及付費能力（image_gen / tts）前提示用戶確認。</li>
+          </ul>
+        </section>
+
+        <section id="risks">
+          <h2>12. 風險、開放問題與決策</h2>
+          <h3>12.1 主要風險與緩解</h3>
+          <table>
+            <thead><tr><th>風險</th><th>嚴重度</th><th>緩解</th></tr></thead>
+            <tbody>
+              <tr><td>能力探活的 false positive / false negative</td><td>高</td><td>五態 ProbeStatus + 結構校驗 + 不污染既有 true</td></tr>
+              <tr><td>master key 遺失導致 api_key 不可解密</td><td>中</td><td>清晰報錯 + re-add 流程</td></tr>
+              <tr><td>OpenAI 兼容方言差異造成 invoke 失敗</td><td>中</td><td>透傳不改寫 + adapter 內 quirk 開關空間</td></tr>
+              <tr><td>image_gen / tts 探活造成意外費用</td><td>中</td><td>CLI 二次確認 + usage_guide 明示</td></tr>
+              <tr><td>MCP stdio 配置失敗無法診斷</td><td>低</td><td><code>--debug</code> stderr 輸出 + 文檔 config 範例</td></tr>
+              <tr><td>LiteLLM metadata 結構演進</td><td>低</td><td>解析失敗降級，不影響其他來源</td></tr>
+              <tr><td>樂觀鎖實際失效</td><td>中</td><td>並發 pytest 覆蓋；status 流轉單調保證最差只是少跑、不會雙跑</td></tr>
+              <tr><td>UI 進程被外網訪問</td><td>低</td><td>預設 127.0.0.1；改 host 時 CLI 警告</td></tr>
+              <tr><td>SQLite 寫衝突</td><td>低</td><td>WAL + busy_timeout，已驗證在 macOS 本地用戶下穩定</td></tr>
+            </tbody>
+          </table>
+
+          <h3>12.2 開放問題</h3>
+          <ul class="tight">
+            <li>LiteLLM metadata 是內建 snapshot 還是首次遠端拉取？（默認 snapshot + 可選 refresh）</li>
+            <li>是否在 list_models 出參中暴露上游 <code>raw_meta_json</code>？（默認否，按需展開）</li>
+            <li>是否提供 <code>ai-mcp-server --http</code> 模式給遠端 MCP client？（默認 P2+ 階段）</li>
+          </ul>
+
+          <h3>12.3 已確認決策</h3>
+          <p class="note">見 §0「已確認決策」表格。</p>
+        </section>
+
+        <section id="dod">
+          <h2>13. 完成定義（Definition of Done）</h2>
+          <div class="grid">
+            <div class="card">
+              <strong>產品級</strong>
+              <ul class="tight">
+                <li>用戶可登記 ≥2 endpoint 並完成 10 種能力探活。</li>
+                <li>Claude Desktop 中可看到 6 個 tool，並能透過 <code>invoke_model</code> 完成 chat / vision / embedding 三條路徑。</li>
+                <li><code>usage_guide</code> 動態反映當前能力分佈。</li>
+                <li>Web UI 9 個頁面可用，SSE 進度條能反映探活進展。</li>
+                <li>UI / CLI / MCP 三入口同時操作不衝突（樂觀鎖生效）。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <strong>架構級</strong>
+              <ul class="tight">
+                <li>四層分明：MCP / CLI / Web 入口 → application → providers / capability / probes → storage。</li>
+                <li>「解讀 X」原則：三進程不共享記憶體、共享 SQLite (WAL)。</li>
+                <li>ProviderAdapter ABC 可塞入 Anthropic 實作而不改上層。</li>
+                <li>resolver 四來源優先級可診斷（每個 capability 帶 source 標籤）。</li>
+                <li>Worker 樂觀鎖 + lease 回退驗證通過。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <strong>測試級</strong>
+              <ul class="tight">
+                <li>unit + integration pytest 全綠；ruff / mypy 無 error。</li>
+                <li>10.2 真實串通驗收全部走通並留下截圖或 transcript。</li>
+                <li><code>strings db.sqlite3 | grep -E '^sk-'</code> 無命中。</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>文檔與發布</h3>
+          <ul class="tight">
+            <li>README 含安裝、CLI 範例、Claude Desktop 配置範例、故障排查。</li>
+            <li>本 PRD 與 AGENTS.md 隨倉庫一起發布。</li>
+            <li>CHANGELOG 由 <code>update-changelog</code> skill 自動維護。</li>
+          </ul>
+
+          <h3>回滾開關</h3>
+          <ul class="tight">
+            <li>用戶可隨時刪除 <code>~/.ai-mcp-server/</code> 與 system keyring 中的 <code>ai-mcp-server</code> 條目，徹底重置。</li>
+            <li>MCP client 端只需從配置中移除 <code>ai-mcp</code> 條目即可解除接入。</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const diagrams = {
+        install: [
+          { label: "安裝", detail: "uv tool install ai-mcp-server" },
+          { label: "初始化", detail: "建 ~/.ai-mcp-server/ + SQLite" },
+          { label: "登記", detail: "ai-mcp endpoint add" },
+          { label: "探活", detail: "ai-mcp endpoint probe" }
+        ],
+        "agent-call": [
+          { label: "拉起 server", detail: "MCP client stdio" },
+          { label: "讀 usage_guide", detail: "取得能力分佈" },
+          { label: "篩 list_models", detail: "按 capability 過濾" },
+          { label: "invoke_model", detail: "透傳到上游 API" }
+        ],
+        arch: null,
+        er: null
+      };
+
+      function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = String(text).split(/\s+/);
+        let line = "";
+        for (const word of words) {
+          const testLine = line ? `${line} ${word}` : word;
+          if (ctx.measureText(testLine).width > maxWidth && line) {
+            ctx.fillText(line, x, y);
+            line = word;
+            y += lineHeight;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, x, y);
+      }
+
+      function drawFlow(ctx, width, height, items) {
+        ctx.clearRect(0, 0, width, height);
+        const mobile = width < 640;
+        const gap = mobile ? 16 : 22;
+        const nodeWidth = mobile ? width - 48 : Math.min(200, (width - 80 - gap * (items.length - 1)) / items.length);
+        const nodeHeight = 86;
+        const startX = mobile ? 24 : (width - (nodeWidth * items.length + gap * (items.length - 1))) / 2;
+        const startY = mobile ? 26 : height / 2 - nodeHeight / 2;
+        ctx.font = "14px Arial";
+        items.forEach((item, index) => {
+          const x = mobile ? 24 : startX + index * (nodeWidth + gap);
+          const y = mobile ? startY + index * (nodeHeight + gap) : startY;
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(x, y, nodeWidth, nodeHeight, 8);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#17202a";
+          ctx.font = "700 14px Arial";
+          wrapText(ctx, item.label, x + 14, y + 28, nodeWidth - 28, 18);
+          ctx.fillStyle = "#667085";
+          ctx.font = "13px Arial";
+          wrapText(ctx, item.detail, x + 14, y + 56, nodeWidth - 28, 17);
+          if (index < items.length - 1) {
+            ctx.strokeStyle = "#98a2b3";
+            ctx.fillStyle = "#98a2b3";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            if (mobile) {
+              const ax = x + nodeWidth / 2;
+              const ay = y + nodeHeight;
+              ctx.moveTo(ax, ay + 4);
+              ctx.lineTo(ax, ay + gap - 4);
+              ctx.lineTo(ax - 5, ay + gap - 10);
+              ctx.moveTo(ax, ay + gap - 4);
+              ctx.lineTo(ax + 5, ay + gap - 10);
+            } else {
+              const ax = x + nodeWidth;
+              const ay = y + nodeHeight / 2;
+              ctx.moveTo(ax + 4, ay);
+              ctx.lineTo(ax + gap - 4, ay);
+              ctx.lineTo(ax + gap - 10, ay - 5);
+              ctx.moveTo(ax + gap - 4, ay);
+              ctx.lineTo(ax + gap - 10, ay + 5);
+            }
+            ctx.stroke();
+          }
+        });
+      }
+
+      function drawArch(ctx, width, height) {
+        ctx.clearRect(0, 0, width, height);
+        const layers = [
+          { title: "入口層（三進程共享 application）", items: ["MCP Server (stdio)", "CLI (typer)", "Web UI (FastAPI + Jinja2 + SSE)"], color: "#2563eb" },
+          { title: "編排層 application/", items: ["endpoint_service", "model_discovery", "probe_jobs (enqueue/claim)", "worker (run_loop/lease_sweeper)", "capability_query", "meta_service"], color: "#0891b2" },
+          { title: "領域層", items: ["providers/ (ABC + OpenAICompat)", "capability/ (static + litellm + resolver)", "probes/ (10 種能力探活)"], color: "#16a34a" },
+          { title: "基礎層", items: ["storage/ (sqlite WAL + Fernet + DAO)", "system keyring", "assets/probe/"], color: "#a35b00" }
+        ];
+        const padding = 24;
+        const layerHeight = (height - padding * 2 - (layers.length - 1) * 14) / layers.length;
+        const layerWidth = width - padding * 2;
+        layers.forEach((layer, i) => {
+          const y = padding + i * (layerHeight + 14);
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = layer.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(padding, y, layerWidth, layerHeight, 8);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = layer.color;
+          ctx.font = "700 14px Arial";
+          ctx.fillText(layer.title, padding + 14, y + 22);
+          ctx.fillStyle = "#344054";
+          ctx.font = "13px Arial";
+          const colWidth = (layerWidth - 28) / layer.items.length;
+          layer.items.forEach((item, j) => {
+            wrapText(ctx, item, padding + 14 + j * colWidth, y + 48, colWidth - 12, 16);
+          });
+          if (i < layers.length - 1) {
+            ctx.strokeStyle = "#98a2b3";
+            ctx.fillStyle = "#98a2b3";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            const ax = width / 2;
+            const ay = y + layerHeight;
+            ctx.moveTo(ax, ay + 2);
+            ctx.lineTo(ax, ay + 12);
+            ctx.lineTo(ax - 5, ay + 7);
+            ctx.moveTo(ax, ay + 12);
+            ctx.lineTo(ax + 5, ay + 7);
+            ctx.stroke();
+          }
+        });
+      }
+
+      function drawER(ctx, width, height) {
+        ctx.clearRect(0, 0, width, height);
+        const entities = [
+          { name: "endpoints", x: 0.05, y: 0.1, fields: ["id PK", "name UNIQUE", "base_url", "api_key_enc BLOB", "provider_type", "created_at"] },
+          { name: "models", x: 0.55, y: 0.05, fields: ["endpoint_id FK", "model_id", "PK (endpoint_id, model_id)", "capabilities_json", "context_length", "raw_meta_json", "last_discovered_at"] },
+          { name: "overrides", x: 0.55, y: 0.55, fields: ["endpoint_id", "model_id", "capability_key", "PK (3 cols)", "value_json", "updated_at"] },
+          { name: "probe_runs", x: 0.05, y: 0.55, fields: ["id PK", "endpoint_id", "model_id", "capability", "ok", "latency_ms", "raw_json", "ran_at"] },
+          { name: "probe_jobs", x: 0.34, y: 0.32, fields: ["id PK", "endpoint_id FK", "model_id", "capability", "status", "claimed_by (uuid)", "claimed_at", "lease_until", "finished_at"] }
+        ];
+        const boxW = Math.min(230, width * 0.3);
+        const lineH = 14;
+        const headerH = 22;
+        entities.forEach((e) => {
+          const boxH = headerH + e.fields.length * lineH + 10;
+          const x = e.x * width;
+          const y = e.y * height;
+          e._box = { x, y, w: boxW, h: boxH };
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(x, y, boxW, boxH, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#dbeafe";
+          ctx.beginPath();
+          ctx.roundRect(x, y, boxW, headerH, 6);
+          ctx.fill();
+          ctx.fillStyle = "#2563eb";
+          ctx.font = "700 13px Arial";
+          ctx.fillText(e.name, x + 10, y + 15);
+          ctx.fillStyle = "#344054";
+          ctx.font = "12px Arial";
+          e.fields.forEach((f, i) => {
+            ctx.fillText(f, x + 10, y + headerH + (i + 1) * lineH - 2);
+          });
+        });
+        const edges = [
+          { from: "endpoints", to: "models", label: "1..N" },
+          { from: "endpoints", to: "overrides", label: "1..N" },
+          { from: "endpoints", to: "probe_runs", label: "1..N" },
+          { from: "endpoints", to: "probe_jobs", label: "1..N" },
+          { from: "models", to: "overrides", label: "1..N" },
+          { from: "probe_jobs", to: "probe_runs", label: "1..1 (job→run)" }
+        ];
+        ctx.strokeStyle = "#98a2b3";
+        ctx.fillStyle = "#667085";
+        ctx.lineWidth = 1.2;
+        ctx.font = "11px Arial";
+        edges.forEach((edge) => {
+          const a = entities.find((e) => e.name === edge.from);
+          const b = entities.find((e) => e.name === edge.to);
+          if (!a || !b) return;
+          const ax = a._box.x + a._box.w / 2;
+          const ay = a._box.y + a._box.h / 2;
+          const bx = b._box.x + b._box.w / 2;
+          const by = b._box.y + b._box.h / 2;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+          ctx.fillText(edge.label, (ax + bx) / 2 + 4, (ay + by) / 2 - 4);
+        });
+      }
+
+      function renderDiagrams() {
+        document.querySelectorAll("canvas[data-diagram]").forEach((canvas) => {
+          const ratio = window.devicePixelRatio || 1;
+          const rect = canvas.getBoundingClientRect();
+          canvas.width = Math.floor(rect.width * ratio);
+          canvas.height = Math.floor(rect.height * ratio);
+          const ctx = canvas.getContext("2d");
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          const key = canvas.dataset.diagram;
+          if (key === "arch") {
+            drawArch(ctx, rect.width, rect.height);
+          } else if (key === "er") {
+            drawER(ctx, rect.width, rect.height);
+          } else {
+            drawFlow(ctx, rect.width, rect.height, diagrams[key] || []);
+          }
+        });
+      }
+
+      window.addEventListener("resize", renderDiagrams);
+      renderDiagrams();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Overrides - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>Overrides</h2>
+
+<div class="card">
+  <strong>新增 override</strong>
+  <form method="post" action="/overrides/" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <input type="text" name="endpoint" placeholder="endpoint" required>
+    <input type="text" name="model_id" placeholder="model_id" required>
+    <input type="text" name="capability_key" placeholder="feature key (tts / asr / vision)" required>
+    <input type="text" name="value" placeholder='value JSON (e.g. true / 128000)' required>
+    <button class="btn" type="submit">寫入</button>
+  </form>
+  <p class="muted">支援 capability true/false 與 context_length 數字；tts / stt / asr 會自動正規化。</p>
+</div>
+
+{% if rows %}
+<table>
+  <thead><tr><th>endpoint</th><th>model_id</th><th>capability</th><th>value</th><th>updated</th><th>操作</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.endpoint }}</td>
+    <td>{{ r.model_id }}</td>
+    <td>{{ r.capability_key }}</td>
+    <td><code>{{ r.value }}</code></td>
+    <td>{{ r.updated_at }}</td>
+    <td>
+      <form class="inline" method="post" action="/overrides/delete">
+        <input type="hidden" name="endpoint" value="{{ r.endpoint }}">
+        <input type="hidden" name="model_id" value="{{ r.model_id }}">
+        <input type="hidden" name="capability_key" value="{{ r.capability_key }}">
+        <button class="btn danger" type="submit">刪除</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">尚無 override。</p>
+{% endif %}
+{% endblock %}

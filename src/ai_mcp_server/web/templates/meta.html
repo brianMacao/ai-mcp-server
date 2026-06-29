@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}LiteLLM Meta - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>LiteLLM Metadata</h2>
+<p>本地快取條目數：<strong>{{ info.entries }}</strong></p>
+<form method="post" action="/meta/refresh">
+  <button class="btn" type="submit">從 GitHub 拉取最新 snapshot</button>
+</form>
+{% endblock %}

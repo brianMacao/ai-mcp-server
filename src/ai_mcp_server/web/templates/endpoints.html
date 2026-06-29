@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Endpoints - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>Endpoints</h2>
+
+<div class="card">
+  <strong>新增 endpoint</strong>
+  <form method="post" action="/endpoints/" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input type="text" name="name" placeholder="name" required>
+    <input type="text" name="base_url" placeholder="https://..." style="min-width:280px" required>
+    <input type="text" name="key" placeholder="api_key" style="min-width:240px" required>
+    <select name="provider_type">
+      <option value="openai-compat">openai-compat</option>
+    </select>
+    <button class="btn" type="submit">新增</button>
+  </form>
+  <p class="muted">api_key 在本機以 Fernet 加密儲存於 ~/.ai-mcp-server/db.sqlite3。</p>
+</div>
+
+{% if endpoints %}
+<table>
+  <thead><tr><th>id</th><th>name</th><th>base_url</th><th>provider</th><th>created_at</th><th>操作</th></tr></thead>
+  <tbody>
+  {% for e in endpoints %}
+  <tr>
+    <td>{{ e.id }}</td>
+    <td><a href="/endpoints/{{ e.name }}">{{ e.name }}</a></td>
+    <td>{{ e.base_url }}</td>
+    <td>{{ e.provider_type }}</td>
+    <td>{{ e.created_at }}</td>
+    <td>
+      <form class="inline" method="post" action="/endpoints/{{ e.name }}/discover">
+        <button class="btn ghost" type="submit">discover</button>
+      </form>
+      <form class="inline" method="post" action="/endpoints/{{ e.name }}/probe">
+        <button class="btn" type="submit">探活</button>
+      </form>
+      <form class="inline" method="post" action="/endpoints/{{ e.name }}/delete"
+            onsubmit="return confirm('刪除 {{ e.name }}?')">
+        <button class="btn danger" type="submit">刪除</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">尚未登記。</p>
+{% endif %}
+{% endblock %}

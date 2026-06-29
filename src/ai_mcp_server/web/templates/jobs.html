@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}探活佇列 - ai-mcp ui{% endblock %}
+{% block content %}
+<h2>探活佇列 (probe_jobs)</h2>
+<p class="muted">啟動 <code>ai-mcp-server</code> 或 <code>ai-mcp worker</code> 後，pending 任務會被自動消化。</p>
+
+<div id="counts" class="grid"></div>
+
+<h3>近期任務</h3>
+<table>
+  <thead><tr><th>id</th><th>endpoint</th><th>model</th><th>capability</th><th>status</th><th>claimed_by</th><th>error</th></tr></thead>
+  <tbody id="jobs-body">
+  {% for j in jobs %}
+  <tr>
+    <td>{{ j.id }}</td>
+    <td>{{ j.endpoint_id }}</td>
+    <td>{{ j.model_id }}</td>
+    <td>{{ j.capability.value }}</td>
+    <td>
+      {% if j.status.value == 'done' %}<span class="tag ok">{{ j.status.value }}</span>
+      {% elif j.status.value == 'failed' %}<span class="tag err">{{ j.status.value }}</span>
+      {% elif j.status.value == 'running' %}<span class="tag warn">{{ j.status.value }}</span>
+      {% else %}<span class="tag">{{ j.status.value }}</span>{% endif %}
+    </td>
+    <td><small>{{ (j.claimed_by or '-')[:8] }}</small></td>
+    <td><small>{{ j.error or '-' }}</small></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<script>
+const es = new EventSource("/jobs/stream");
+es.addEventListener("snapshot", (ev) => {
+  const data = JSON.parse(ev.data);
+  const c = data.counts;
+  document.getElementById("counts").innerHTML =
+    Object.entries(c).map(([k, v]) => `<div class="card"><strong>${k}</strong><div style="font-size:22px">${v}</div></div>`).join("");
+});
+es.onerror = () => console.warn("SSE disconnected; browser will retry");
+</script>
+{% endblock %}

@@ -1,0 +1,119 @@
+[project]
+name = "ai-mcp-server"
+dynamic = ["version"]
+description = "本地 MCP 橋樑：把多個 API key + endpoint 收編為統一的模型能力池，給 Agent 透過 MCP 調用"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Brian", email = "brian@example.com" }]
+license = { text = "MIT" }
+keywords = ["mcp", "model-context-protocol", "llm", "ai", "model-pool", "openai-compatible"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "httpx>=0.27.0",
+    "typer>=0.12.0",
+    "cryptography>=42.0.0",
+    "keyring>=24.0.0",
+    "pydantic>=2.6.0",
+    "fastapi>=0.110.0",
+    "jinja2>=3.1.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.9",
+    "rich>=13.7.0",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+ai-mcp = "ai_mcp_server.cli:app"
+ai-mcp-server = "ai_mcp_server.server:main"
+
+[project.urls]
+Homepage = "https://github.com/brianMacao/ai-mcp-server"
+Repository = "https://github.com/brianMacao/ai-mcp-server"
+Issues = "https://github.com/brianMacao/ai-mcp-server/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.1.0"
+
+[tool.hatch.build]
+exclude = [
+    "/.data",
+    "/.keys",
+    "/.trae",
+    "/.venv",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/.mypy_cache",
+    "/build",
+    "/dist",
+    "/node_modules",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/assets",
+    "/docs",
+    "/scripts",
+    "/AGENTS.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/README.md",
+    "/README.zh-CN.md",
+    "/README.zh-TW.md",
+    "/cli.js",
+    "/package.json",
+    "/pyproject.toml",
+    "/.keys.example",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_mcp_server"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"assets/probe" = "ai_mcp_server/_assets/probe"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
