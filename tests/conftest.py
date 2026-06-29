@@ -20,16 +20,20 @@ def _isolated_env(tmp_path_factory: pytest.TempPathFactory) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _reset_db_per_test() -> None:
-    """Wipe DB before each test; force re-init."""
+def _reset_db_per_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Give each test its own DB file and force schema init.
+
+    Windows keeps SQLite files locked while any connection handle is still alive,
+    so deleting the same db.sqlite3 before every test can fail with WinError 32.
+    A per-test DB path gives us the same isolation without relying on unlink.
+    """
     from ai_mcp_server.storage import db as db_mod
 
-    p = Path(os.environ["AI_MCP_DB_PATH"])
-    if p.exists():
-        p.unlink()
-    for ext in ("-wal", "-shm"):
-        q = Path(str(p) + ext)
-        if q.exists():
-            q.unlink()
+    data_dir = tmp_path / "ai-mcp-data"
+    monkeypatch.setenv("AI_MCP_CONFIG_DIR", str(data_dir))
+    monkeypatch.setenv("AI_MCP_DB_PATH", str(data_dir / "db.sqlite3"))
     db_mod._initialised = False
     yield
+    db_mod._initialised = False
